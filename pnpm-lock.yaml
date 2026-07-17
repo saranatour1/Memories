@@ -17,7 +17,7 @@ importers:
         version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@convex-dev/r2':
         specifier: ^0.10.2
-        version: 0.10.2(convex@1.42.1(react@19.2.7))(hono@4.12.28)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
+        version: 0.10.2(convex@1.42.2(react@19.2.7))(hono@4.12.28)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
@@ -46,11 +46,11 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       convex:
-        specifier: ^1.42.1
-        version: 1.42.1(react@19.2.7)
+        specifier: ^1.42.2
+        version: 1.42.2(react@19.2.7)
       convex-helpers:
         specifier: ^0.1.120
-        version: 0.1.120(convex@1.42.1(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
+        version: 0.1.120(convex@1.42.2(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
       isbot:
         specifier: ^5.1.36
         version: 5.1.44
@@ -1600,8 +1600,8 @@ packages:
       zod:
         optional: true
 
-  convex@1.42.1:
-    resolution: {integrity: sha512-yFKp4xerVuBwQqpuTtvosOk9F/fX0twZs+Xti3oj/MlwPUU90QuhgCYo/I2wvFBAFwXsmx9tXpf2q8ekh1+3ug==}
+  convex@1.42.2:
+    resolution: {integrity: sha512-5Mo9EZQ45bG2nbhO7NhTTw5GF9g4RA/kgRQviUQrOI+wFCyfdeNw3PjgOZc2eOM4ruum+0QmUcvVCX5mT2v4rg==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -2523,6 +2523,11 @@ packages:
 
   prettier@3.9.4:
     resolution: {integrity: sha512-yWG/o/4oJfo036EKAfK6ACAoDOfHeRHx4tuxkfBZiauURiaSmYwlpOr5LQqKtIkRD2z1PLteme2WoxEnj4tHTg==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  prettier@3.9.5:
+    resolution: {integrity: sha512-/FVl766LpUfB5vXgCYOYa0MeV/441Ia99AeICQIQFTY/Nw0roZwULcXpku5i1/m5kt/baz+s4Zogspd839HSMg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -3460,17 +3465,17 @@ snapshots:
 
   '@borewit/text-codec@0.2.2': {}
 
-  '@convex-dev/action-retrier@0.3.1(convex@1.42.1(react@19.2.7))':
+  '@convex-dev/action-retrier@0.3.1(convex@1.42.2(react@19.2.7))':
     dependencies:
-      convex: 1.42.1(react@19.2.7)
+      convex: 1.42.2(react@19.2.7)
 
-  '@convex-dev/r2@0.10.2(convex@1.42.1(react@19.2.7))(hono@4.12.28)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)':
+  '@convex-dev/r2@0.10.2(convex@1.42.2(react@19.2.7))(hono@4.12.28)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)':
     dependencies:
       '@aws-sdk/client-s3': 3.1088.0
       '@aws-sdk/s3-request-presigner': 3.1088.0
-      '@convex-dev/action-retrier': 0.3.1(convex@1.42.1(react@19.2.7))
-      convex: 1.42.1(react@19.2.7)
-      convex-helpers: 0.1.120(convex@1.42.1(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
+      '@convex-dev/action-retrier': 0.3.1(convex@1.42.2(react@19.2.7))
+      convex: 1.42.2(react@19.2.7)
+      convex-helpers: 0.1.120(convex@1.42.2(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76)
       file-type: 21.3.4
       uuid: 14.0.1
     optionalDependencies:
@@ -4504,19 +4509,19 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.120(convex@1.42.1(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76):
+  convex-helpers@0.1.120(convex@1.42.2(react@19.2.7))(hono@4.12.28)(react@19.2.7)(typescript@5.9.3)(zod@3.25.76):
     dependencies:
-      convex: 1.42.1(react@19.2.7)
+      convex: 1.42.2(react@19.2.7)
     optionalDependencies:
       hono: 4.12.28
       react: 19.2.7
       typescript: 5.9.3
       zod: 3.25.76
 
-  convex@1.42.1(react@19.2.7):
+  convex@1.42.2(react@19.2.7):
     dependencies:
       esbuild: 0.27.0
-      prettier: 3.9.4
+      prettier: 3.9.5
       ws: 8.21.0
     optionalDependencies:
       react: 19.2.7
@@ -5366,6 +5371,8 @@ snapshots:
   powershell-utils@0.1.0: {}
 
   prettier@3.9.4: {}
+
+  prettier@3.9.5: {}
 
   pretty-ms@9.3.0:
     dependencies:
