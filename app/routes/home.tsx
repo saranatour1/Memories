@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Mic, Plane, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
 import { Button } from "~/components/ui/button";
@@ -115,17 +115,31 @@ function Dashboard() {
 
   const drafts = (memories ?? []).filter((m) => m.status === "draft");
   const published = (memories ?? []).filter((m) => m.status === "published");
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
     <div className="flex flex-col gap-8">
-      <Button
-        className="self-start"
-        onClick={async () => navigate(`/memory/${await create({})}`)}
-      >
-        New memory
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button onClick={async () => navigate(`/memory/${await create({})}`)}>
+          New memory
+        </Button>
+        <div className="flex gap-1">
+          {(["list", "calendar"] as const).map((v) => (
+            <Button
+              key={v}
+              variant={view === v ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setView(v)}
+            >
+              {v === "list" ? "List" : "Calendar"}
+            </Button>
+          ))}
+        </div>
+      </div>
       {memories === undefined ? (
         <p className="text-muted-foreground">Loading…</p>
+      ) : view === "calendar" ? (
+        <CalendarView memories={memories} />
       ) : (
         <>
           <MemoryList title="Drafts" memories={drafts} />
@@ -133,6 +147,98 @@ function Dashboard() {
         </>
       )}
     </div>
+  );
+}
+
+const DAY_MS = 86_400_000;
+type Memory = NonNullable<
+  ReturnType<typeof useQuery<typeof api.memories.listMine>>
+>[number];
+
+function CalendarView({ memories }: { memories: Memory[] }) {
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return Date.UTC(now.getFullYear(), now.getMonth(), 1);
+  });
+  const year = new Date(month).getUTCFullYear();
+  const mon = new Date(month).getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, mon + 1, 0)).getUTCDate();
+  const offset = new Date(month).getUTCDay();
+
+  const dated = memories.filter((m) => m.startAt !== undefined);
+  const undatedCount = memories.length - dated.length;
+  const onDay = (dayStart: number) =>
+    dated.filter(
+      (m) =>
+        m.startAt! < dayStart + DAY_MS && (m.endAt ?? m.startAt!) >= dayStart,
+    );
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-medium">
+          {new Date(month).toLocaleDateString([], {
+            month: "long",
+            year: "numeric",
+            timeZone: "UTC",
+          })}
+        </h2>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMonth(Date.UTC(year, mon - 1, 1))}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMonth(Date.UTC(year, mon + 1, 1))}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <span key={i}>{d}</span>
+        ))}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {Array.from({ length: offset }).map((_, i) => (
+          <span key={`pad-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const dayStart = Date.UTC(year, mon, i + 1);
+          const hits = onDay(dayStart);
+          return (
+            <div
+              key={i}
+              className="min-h-16 rounded-md border p-1 text-xs"
+            >
+              <span className="text-muted-foreground">{i + 1}</span>
+              {hits.map((m) => (
+                <Link
+                  key={m._id}
+                  to={`/memory/${m._id}`}
+                  className="mt-0.5 block truncate rounded bg-primary/10 px-1 py-0.5 text-primary hover:bg-primary/20"
+                  title={m.title}
+                >
+                  {m.title}
+                </Link>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      {undatedCount > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {undatedCount} {undatedCount === 1 ? "memory has" : "memories have"} no
+          dates and only appear in the list view.
+        </p>
+      )}
+    </section>
   );
 }
 

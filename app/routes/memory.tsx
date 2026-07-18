@@ -1,8 +1,18 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Car, Mic, Plane, Trash2 } from "lucide-react";
+import {
+  Car,
+  Mic,
+  Pause,
+  Plane,
+  Play,
+  SkipBack,
+  SkipForward,
+  Trash2,
+  X,
+} from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useAuthKitUser } from "~/lib/auth";
@@ -34,6 +44,19 @@ type Item = ReturnType<typeof useQuery<typeof api.items.list>> extends
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+
+const DAY_MS = 86_400_000;
+const toDateInput = (ms?: number) =>
+  ms === undefined ? "" : new Date(ms).toISOString().slice(0, 10);
+const parseTags = (raw: FormDataEntryValue | null) => {
+  const tags = String(raw ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tags.length > 0 ? tags : undefined;
+};
+
+const MEMORY_KINDS = ["day", "week", "month", "trip", "custom"] as const;
 
 export default function MemoryPage() {
   const { id } = useParams();
@@ -86,11 +109,18 @@ function MemoryView({
   const setStatus = useMutation(api.memories.setStatus);
   const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
   const [copied, setCopied] = useState(false);
+  const [watching, setWatching] = useState(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
 
-  const save = async (patch: { title?: string; description?: unknown }) => {
+  const save = async (patch: {
+    title?: string;
+    description?: unknown;
+    kind?: (typeof MEMORY_KINDS)[number];
+    startAt?: number | null;
+    endAt?: number | null;
+  }) => {
     setSaved("saving");
     await update({ memoryId, ...patch });
     setSaved("saved");
@@ -162,12 +192,67 @@ function MemoryView({
             {memory.status === "draft" ? "Publish" : "Unpublish"}
           </Button>
         )}
+        <Button variant="outline" size="sm" onClick={() => setWatching(true)}>
+          <Play className="size-4" /> Watch
+        </Button>
+      </div>
+
+      {watching && (
+        <MemoryPlayer
+          memoryId={memoryId}
+          title={memory.title}
+          items={items}
+          onClose={() => setWatching(false)}
+        />
+      )}
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <select
+          value={memory.kind ?? ""}
+          onChange={(e) =>
+            e.target.value &&
+            save({ kind: e.target.value as (typeof MEMORY_KINDS)[number] })
+          }
+          className="h-9 rounded-md border bg-transparent px-2"
+        >
+          <option value="" disabled>
+            Type of memory
+          </option>
+          {MEMORY_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+        <Input
+          type="date"
+          className="w-auto"
+          defaultValue={toDateInput(memory.startAt)}
+          onChange={(e) =>
+            save({ startAt: e.target.value ? Date.parse(e.target.value) : null })
+          }
+        />
+        <span className="text-muted-foreground">→</span>
+        <Input
+          type="date"
+          className="w-auto"
+          defaultValue={toDateInput(memory.endAt)}
+          onChange={(e) =>
+            save({ endAt: e.target.value ? Date.parse(e.target.value) : null })
+          }
+        />
       </div>
 
       <Editor
         content={memory.description}
         onUpdate={(description) => save({ description })}
         className="mb-8"
+      />
+
+      <DaysSection
+        memoryId={memoryId}
+        startAt={memory.startAt}
+        endAt={memory.endAt}
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -195,6 +280,357 @@ function MemoryView({
         ))}
       </div>
     </main>
+  );
+}
+
+const SLIDE_MS = 4000;
+const SPEEDS = [0.5, 1, 1.5, 2] as const;
+
+type Slide =
+  | { kind: "day"; time: number; date: string; past?: unknown; future?: unknown }
+  | { kind: "item"; time: number; item: Item };
+
+// Plays the memory back like a video: one slide per day panel and per item,
+// in chronological order, auto-advancing with adjustable speed.
+function MemoryPlayer({
+  memoryId,
+  title,
+  items,
+  onClose,
+}: {
+  memoryId: Id<"memories">;
+  title: string;
+  items: Item[];
+  onClose: () => void;
+}) {
+  const days = useQuery(api.days.list, { memoryId });
+  const slides = useMemo<Slide[]>(() => {
+    const itemTime = (i: Item) =>
+      i.type === "flight"
+        ? i.departAt
+        : i.type === "drive"
+          ? i.plannedAt
+          : i._creationTime;
+    return [
+      ...(days ?? [])
+        .filter((d) => d.past !== undefined || d.future !== undefined)
+        .map((d) => ({
+          kind: "day" as const,
+          time: Date.parse(d.date),
+          date: d.date,
+          past: d.past,
+          future: d.future,
+        })),
+      ...items.map((item) => ({
+        kind: "item" as const,
+        time: itemTime(item),
+        item,
+      })),
+    ].sort((a, b) => a.time - b.time);
+  }, [days, items]);
+
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+
+  useEffect(() => {
+    if (!playing || slides.length === 0) return;
+    if (index >= slides.length - 1) {
+      setPlaying(false);
+      return;
+    }
+    const t = setTimeout(() => setIndex(index + 1), SLIDE_MS / speed);
+    return () => clearTimeout(t);
+  }, [playing, index, speed, slides.length]);
+
+  const slide = slides[Math.min(index, Math.max(slides.length - 1, 0))];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-sm font-medium">{title}</span>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="size-4" />
+        </Button>
+      </div>
+
+      <div className="flex flex-1 items-center justify-center overflow-y-auto px-4">
+        {slides.length === 0 ? (
+          <p className="text-muted-foreground">
+            Nothing to watch yet — add day panels or items first.
+          </p>
+        ) : (
+          <div key={index} className="w-full max-w-xl">
+            <SlideView slide={slide} />
+          </div>
+        )}
+      </div>
+
+      <div className="mx-auto w-full max-w-xl px-4 pb-6">
+        <div className="mb-3 h-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{
+              width:
+                slides.length === 0
+                  ? "0%"
+                  : `${((index + 1) / slides.length) * 100}%`,
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={index === 0}
+            onClick={() => setIndex(index - 1)}
+          >
+            <SkipBack className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              if (!playing && index >= slides.length - 1) setIndex(0);
+              setPlaying(!playing);
+            }}
+          >
+            {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={index >= slides.length - 1}
+            onClick={() => setIndex(index + 1)}
+          >
+            <SkipForward className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-14"
+            onClick={() =>
+              setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])
+            }
+          >
+            {speed}×
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {slides.length === 0 ? "0 / 0" : `${index + 1} / ${slides.length}`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlideView({ slide }: { slide: Slide }) {
+  if (slide.kind === "day") {
+    return (
+      <div>
+        <p className="mb-4 text-center text-lg font-medium">
+          {new Date(slide.date).toLocaleDateString([], {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
+        {slide.past !== undefined && (
+          <div className="mb-4">
+            <p className="mb-1 text-xs uppercase text-muted-foreground">
+              How the day looked
+            </p>
+            <RichText content={slide.past} />
+          </div>
+        )}
+        {slide.future !== undefined && (
+          <div>
+            <p className="mb-1 text-xs uppercase text-muted-foreground">
+              How it could look
+            </p>
+            <RichText content={slide.future} />
+          </div>
+        )}
+      </div>
+    );
+  }
+  const { item } = slide;
+  return (
+    <div className="text-center">
+      {item.type === "flight" && (
+        <div>
+          <Plane className="mx-auto mb-3 size-8 text-muted-foreground" />
+          <p className="text-lg font-medium">
+            {item.airline} {item.flightNumber}
+          </p>
+          <p className="text-muted-foreground">
+            {item.from} → {item.to}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {when(item.departAt)} → {when(item.arriveAt)}
+          </p>
+        </div>
+      )}
+      {item.type === "drive" && (
+        <div>
+          <Car className="mx-auto mb-3 size-8 text-muted-foreground" />
+          <p className="text-lg font-medium">
+            {item.from} → {item.to}
+          </p>
+          {item.notes && <p className="text-muted-foreground">{item.notes}</p>}
+          <p className="mt-1 text-sm text-muted-foreground">
+            {when(item.plannedAt)}
+          </p>
+        </div>
+      )}
+      {item.type === "note" && (
+        <div className="text-left">
+          <RichText content={item.content} />
+        </div>
+      )}
+      {item.type === "image" && item.url && (
+        <img
+          src={item.url}
+          alt={item.caption ?? "Photo"}
+          className="mx-auto max-h-[60vh] rounded-lg"
+        />
+      )}
+      {item.type === "voice" && (
+        <div>
+          <Mic className="mx-auto mb-3 size-8 text-muted-foreground" />
+          {item.url && (
+            <audio controls src={item.url} className="mx-auto" />
+          )}
+        </div>
+      )}
+      {item.tags && item.tags.length > 0 && (
+        <div className="mt-3 flex flex-wrap justify-center gap-1">
+          {item.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-muted px-2 py-0.5 text-xs"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Day panels for the memory's date range: pick a day, write how it looked
+// (past) and how it could look (future). Days are grouped into calendar
+// months, laid out in weeks.
+function DaysSection({
+  memoryId,
+  startAt,
+  endAt,
+}: {
+  memoryId: Id<"memories">;
+  startAt?: number;
+  endAt?: number;
+}) {
+  const days = useQuery(api.days.list, { memoryId });
+  const upsert = useMutation(api.days.upsert);
+  const [openDate, setOpenDate] = useState<string | null>(null);
+
+  if (startAt === undefined || endAt === undefined || endAt < startAt) {
+    return (
+      <p className="mb-8 text-sm text-muted-foreground">
+        Set start and end dates above to plan day by day.
+      </p>
+    );
+  }
+
+  const byDate = new Map((days ?? []).map((d) => [d.date, d]));
+  const dates: string[] = [];
+  // ponytail: capped at 366 days; split bigger spans into separate memories
+  for (let t = startAt; t <= endAt && dates.length <= 366; t += DAY_MS) {
+    dates.push(new Date(t).toISOString().slice(0, 10));
+  }
+  const months = new Map<string, string[]>();
+  for (const d of dates) {
+    const key = d.slice(0, 7);
+    const list = months.get(key) ?? [];
+    list.push(d);
+    months.set(key, list);
+  }
+  const open = openDate ? byDate.get(openDate) : undefined;
+
+  return (
+    <div className="mb-8">
+      <h2 className="mb-2 text-sm font-medium">Days</h2>
+      {[...months.entries()].map(([month, monthDates]) => (
+        <div key={month} className="mb-3">
+          <p className="mb-1 text-xs text-muted-foreground">
+            {new Date(`${month}-01`).toLocaleDateString([], {
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+          <div className="grid grid-cols-7 gap-1">
+            {/* offset so each row is a real Sunday-to-Saturday week */}
+            {Array.from({
+              length: new Date(monthDates[0]).getUTCDay(),
+            }).map((_, i) => (
+              <span key={i} />
+            ))}
+            {monthDates.map((date) => {
+              const hasContent =
+                byDate.get(date)?.past !== undefined ||
+                byDate.get(date)?.future !== undefined;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() =>
+                    setOpenDate(openDate === date ? null : date)
+                  }
+                  className={`rounded-md border px-1 py-1.5 text-xs ${
+                    openDate === date
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : hasContent
+                        ? "bg-muted font-medium"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {Number(date.slice(8))}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {openDate && (
+        <div key={openDate} className="mt-3 rounded-lg border p-4">
+          <p className="mb-3 text-sm font-medium">
+            {new Date(openDate).toLocaleDateString([], {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </p>
+          <Label className="mb-1 block text-xs text-muted-foreground">
+            How the day looked
+          </Label>
+          <Editor
+            content={open?.past}
+            onUpdate={(past) => upsert({ memoryId, date: openDate, past })}
+            className="mb-3"
+          />
+          <Label className="mb-1 block text-xs text-muted-foreground">
+            How it could look
+          </Label>
+          <Editor
+            content={open?.future}
+            onUpdate={(future) => upsert({ memoryId, date: openDate, future })}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -281,6 +717,18 @@ function ItemRow({
               )}
             </div>
           )}
+          {item.tags && item.tags.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-muted px-2 py-0.5 text-xs"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             {item.type === "flight"
               ? `${when(item.departAt)} → ${when(item.arriveAt)}`
@@ -331,6 +779,7 @@ function FlightDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               to: f.get("to") as string,
               departAt: new Date(f.get("departAt") as string).getTime(),
               arriveAt: new Date(f.get("arriveAt") as string).getTime(),
+              tags: parseTags(f.get("tags")),
             });
             setOpen(false);
           }}
@@ -343,6 +792,7 @@ function FlightDialog({ memoryId }: { memoryId: Id<"memories"> }) {
             <Field name="departAt" label="Departs" type="datetime-local" />
             <Field name="arriveAt" label="Arrives" type="datetime-local" />
           </div>
+          <Field name="tags" label="Tags (comma separated)" required={false} />
           <Button type="submit">Add flight</Button>
         </form>
       </DialogContent>
@@ -373,6 +823,7 @@ function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               to: f.get("to") as string,
               plannedAt: new Date(f.get("plannedAt") as string).getTime(),
               notes: (f.get("notes") as string) || undefined,
+              tags: parseTags(f.get("tags")),
             });
             setOpen(false);
           }}
@@ -383,6 +834,7 @@ function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
             <Field name="plannedAt" label="When" type="datetime-local" />
             <Field name="notes" label="Notes" required={false} />
           </div>
+          <Field name="tags" label="Tags (comma separated)" required={false} />
           <Button type="submit">Add drive</Button>
         </form>
       </DialogContent>
@@ -393,6 +845,7 @@ function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
 function NoteDialog({ memoryId }: { memoryId: Id<"memories"> }) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState<unknown>(null);
+  const [tagsText, setTagsText] = useState("");
   const addNote = useMutation(api.items.addNote);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -404,11 +857,17 @@ function NoteDialog({ memoryId }: { memoryId: Id<"memories"> }) {
           <DialogTitle>Add note</DialogTitle>
         </DialogHeader>
         <Editor content={undefined} onUpdate={setContent} />
+        <Input
+          placeholder="Tags (comma separated)"
+          value={tagsText}
+          onChange={(e) => setTagsText(e.target.value)}
+        />
         <Button
           disabled={content === null}
           onClick={async () => {
-            await addNote({ memoryId, content });
+            await addNote({ memoryId, content, tags: parseTags(tagsText) });
             setContent(null);
+            setTagsText("");
             setOpen(false);
           }}
         >

@@ -24,6 +24,8 @@ export const list = memberQuery({
   },
 });
 
+const tags = v.optional(v.array(v.string()));
+
 export const addFlight = memberMutation({
   args: {
     airline: v.string(),
@@ -32,6 +34,7 @@ export const addFlight = memberMutation({
     to: v.string(),
     departAt: v.number(),
     arriveAt: v.number(),
+    tags,
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("items", {
@@ -49,6 +52,7 @@ export const addDrive = memberMutation({
     to: v.string(),
     plannedAt: v.number(),
     notes: v.optional(v.string()),
+    tags,
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("items", {
@@ -61,13 +65,14 @@ export const addDrive = memberMutation({
 });
 
 export const addNote = memberMutation({
-  args: { content: v.any() },
-  handler: async (ctx, { content }) => {
+  args: { content: v.any(), tags },
+  handler: async (ctx, { content, tags }) => {
     await ctx.db.insert("items", {
       type: "note",
       memoryId: ctx.memory._id,
       createdBy: ctx.userId,
       content,
+      tags,
     });
   },
 });
@@ -83,7 +88,7 @@ export const updateNote = memberMutation({
 });
 
 export const addImage = memberMutation({
-  args: { key: v.string(), caption: v.optional(v.string()) },
+  args: { key: v.string(), caption: v.optional(v.string()), tags },
   handler: async (ctx, args) => {
     await ctx.db.insert("items", {
       type: "image",
@@ -95,7 +100,7 @@ export const addImage = memberMutation({
 });
 
 export const addVoice = memberMutation({
-  args: { key: v.string(), durationMs: v.optional(v.number()) },
+  args: { key: v.string(), durationMs: v.optional(v.number()), tags },
   handler: async (ctx, args) => {
     await ctx.db.insert("items", {
       type: "voice",
@@ -103,6 +108,16 @@ export const addVoice = memberMutation({
       createdBy: ctx.userId,
       ...args,
     });
+  },
+});
+
+export const setTags = memberMutation({
+  args: { itemId: v.id("items"), tags: v.array(v.string()) },
+  handler: async (ctx, { itemId, tags }) => {
+    const item = await ctx.db.get(itemId);
+    if (!item || item.memoryId !== ctx.memory._id)
+      throw new Error("Item not found");
+    await ctx.db.patch(itemId, { tags });
   },
 });
 
