@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery_experimental as useQuery,
+} from "convex/react";
 import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
+import { DAY_MS, type MemoryListItem } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
 import { MemoryCard } from "~/components/memory-card";
 import type { Route } from "./+types/home";
@@ -101,7 +106,11 @@ function Dashboard() {
   const ensure = useMutation(api.users.ensure);
   const create = useMutation(api.memories.create);
   const navigate = useNavigate();
-  const memories = useQuery(api.memories.listMine, isAuthenticated ? {} : "skip");
+  const result = useQuery({
+    query: api.memories.listMine,
+    args: isAuthenticated ? {} : "skip",
+  });
+  const memories = result.status === "success" ? result.data : undefined;
   const ensured = useRef(false);
 
   useEffect(() => {
@@ -138,7 +147,11 @@ function Dashboard() {
           ))}
         </div>
       </div>
-      {memories === undefined ? (
+      {result.status === "error" ? (
+        <p className="text-muted-foreground">
+          Couldn't load your memories. Try reloading.
+        </p>
+      ) : memories === undefined ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : view === "calendar" ? (
         <CalendarView memories={memories} />
@@ -152,10 +165,7 @@ function Dashboard() {
   );
 }
 
-const DAY_MS = 86_400_000;
-type Memory = NonNullable<
-  ReturnType<typeof useQuery<typeof api.memories.listMine>>
->[number];
+type Memory = MemoryListItem;
 
 function CalendarView({ memories }: { memories: Memory[] }) {
   const [month, setMonth] = useState(() => {

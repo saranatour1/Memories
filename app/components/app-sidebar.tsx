@@ -1,5 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery_experimental as useQuery,
+} from "convex/react";
 import { Plus } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
@@ -25,11 +29,18 @@ import {
 export function AppSidebar() {
   const user = useAuthKitUser();
   const { isAuthenticated } = useConvexAuth();
-  const trips = useQuery(api.trips.listMine, isAuthenticated ? {} : "skip");
-  const memories = useQuery(
-    api.memories.listMine,
-    isAuthenticated ? {} : "skip",
-  );
+  const tripsResult = useQuery({
+    query: api.trips.listMine,
+    args: isAuthenticated ? {} : "skip",
+  });
+  const trips =
+    tripsResult.status === "success" ? tripsResult.data : undefined;
+  const memoriesResult = useQuery({
+    query: api.memories.listMine,
+    args: isAuthenticated ? {} : "skip",
+  });
+  const memories =
+    memoriesResult.status === "success" ? memoriesResult.data : undefined;
   const createTrip = useMutation(api.trips.create);
   const createMemory = useMutation(api.memories.create);
   const navigate = useNavigate();

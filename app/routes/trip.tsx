@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
 import {
   useConvexAuth,
@@ -10,18 +10,17 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useAuthKitUser } from "~/lib/auth";
+import { toDateInput } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { MemoryCard } from "~/components/memory-card";
+import { Shell } from "~/components/shell";
 import type { Route } from "./+types/trip";
 
 export const loader = (args: Route.LoaderArgs) =>
   authkitLoader(args, { ensureSignedIn: true });
 
 type TripDoc = NonNullable<FunctionReturnType<typeof api.trips.get>>;
-
-const toDateInput = (ms?: number) =>
-  ms === undefined ? "" : new Date(ms).toISOString().slice(0, 10);
 
 export default function TripPage() {
   const { id } = useParams();
@@ -43,17 +42,6 @@ export default function TripPage() {
   return <TripView trip={trip.data} />;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link to="/" className="text-sm text-muted-foreground hover:underline">
-        ← Memories
-      </Link>
-      <p className="mt-10 text-center text-muted-foreground">{children}</p>
-    </main>
-  );
-}
-
 function TripView({ trip }: { trip: TripDoc }) {
   const user = useAuthKitUser();
   const { isAuthenticated } = useConvexAuth();
@@ -65,12 +53,19 @@ function TripView({ trip }: { trip: TripDoc }) {
   // Edits stay local until the Save button sends them in one mutation.
   type Draft = { title?: string; startAt?: number | null; endAt?: number | null };
   const [draft, setDraft] = useState<Draft>({});
+  const [saveFailed, setSaveFailed] = useState(false);
   const setField = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }));
   const dirty = Object.keys(draft).length > 0;
 
   const saveAll = async () => {
     if (!dirty) return;
-    await update({ tripId: trip._id, ...draft });
+    setSaveFailed(false);
+    try {
+      await update({ tripId: trip._id, ...draft });
+    } catch {
+      setSaveFailed(true); // draft kept so Save can be retried
+      return;
+    }
     setDraft({});
   };
 
@@ -91,9 +86,11 @@ function TripView({ trip }: { trip: TripDoc }) {
           className="border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
           onChange={(e) => setField({ title: e.target.value })}
         />
-        {dirty && (
+        {saveFailed ? (
+          <span className="text-xs text-destructive">Save failed</span>
+        ) : dirty ? (
           <span className="text-xs text-muted-foreground">Unsaved</span>
-        )}
+        ) : null}
         <Button
           variant={dirty ? "default" : "outline"}
           size="sm"
