@@ -7,10 +7,13 @@ export function Editor({
   content,
   onUpdate,
   className,
+  flushRef,
 }: {
   content?: unknown;
   onUpdate: (json: unknown) => void;
   className?: string;
+  // Set to a function that saves any pending (debounced) edit immediately.
+  flushRef?: { current: (() => void) | null };
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const editor = useEditor({
@@ -19,9 +22,20 @@ export function Editor({
     immediatelyRender: false, // SSR: only render client-side
     onUpdate: ({ editor }) => {
       clearTimeout(timer.current);
-      timer.current = setTimeout(() => onUpdate(editor.getJSON()), 750);
+      timer.current = setTimeout(() => {
+        timer.current = undefined;
+        onUpdate(editor.getJSON());
+      }, 750);
     },
   });
+  if (flushRef) {
+    flushRef.current = () => {
+      if (timer.current === undefined || !editor) return;
+      clearTimeout(timer.current);
+      timer.current = undefined;
+      onUpdate(editor.getJSON());
+    };
+  }
   return (
     <EditorContent
       editor={editor}

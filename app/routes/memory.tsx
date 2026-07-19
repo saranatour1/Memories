@@ -124,6 +124,8 @@ function MemoryView({
   const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const pendingTitle = useRef<string | null>(null);
+  const editorFlush = useRef<(() => void) | null>(null);
 
   const save = async (patch: {
     title?: string;
@@ -137,6 +139,16 @@ function MemoryView({
     setSaved("saved");
   };
 
+  // Save any debounced edits (title, description) right now.
+  const flushPending = () => {
+    clearTimeout(titleTimer.current);
+    if (pendingTitle.current !== null) {
+      save({ title: pendingTitle.current });
+      pendingTitle.current = null;
+    }
+    editorFlush.current?.();
+  };
+
   const sorted = [...items].sort((a, b) => a.happenedAt - b.happenedAt);
   const isOwner = memory.role === "owner";
   const nameOf = (userId: string) =>
@@ -148,9 +160,14 @@ function MemoryView({
         <Link to="/" className="text-sm text-muted-foreground hover:underline">
           ← Memories
         </Link>
-        <span className="text-xs text-muted-foreground">
-          {saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}
+          </span>
+          <Button variant="outline" size="sm" onClick={flushPending}>
+            Save
+          </Button>
+        </div>
       </div>
 
       <div className="mb-2 flex items-center gap-3">
@@ -161,7 +178,11 @@ function MemoryView({
           onChange={(e) => {
             clearTimeout(titleTimer.current);
             const title = e.target.value;
-            titleTimer.current = setTimeout(() => save({ title }), 750);
+            pendingTitle.current = title;
+            titleTimer.current = setTimeout(() => {
+              pendingTitle.current = null;
+              save({ title });
+            }, 750);
           }}
         />
         <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
@@ -251,6 +272,7 @@ function MemoryView({
       <Editor
         content={memory.description}
         onUpdate={(description) => save({ description })}
+        flushRef={editorFlush}
         className="mb-8"
       />
 

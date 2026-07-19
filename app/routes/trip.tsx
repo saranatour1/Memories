@@ -65,6 +65,15 @@ function TripView({ trip }: { trip: TripDoc }) {
   const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const pendingTitle = useRef<string | null>(null);
+
+  const flushPending = () => {
+    clearTimeout(titleTimer.current);
+    if (pendingTitle.current !== null) {
+      update({ tripId: trip._id, title: pendingTitle.current });
+      pendingTitle.current = null;
+    }
+  };
 
   const mine = useQuery({
     query: api.memories.listMine,
@@ -76,19 +85,25 @@ function TripView({ trip }: { trip: TripDoc }) {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <Input
-        key={trip._id}
-        defaultValue={trip.title}
-        className="mb-4 border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
-        onChange={(e) => {
-          clearTimeout(titleTimer.current);
-          const title = e.target.value;
-          titleTimer.current = setTimeout(
-            () => update({ tripId: trip._id, title }),
-            750,
-          );
-        }}
-      />
+      <div className="mb-4 flex items-center gap-2">
+        <Input
+          key={trip._id}
+          defaultValue={trip.title}
+          className="border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
+          onChange={(e) => {
+            clearTimeout(titleTimer.current);
+            const title = e.target.value;
+            pendingTitle.current = title;
+            titleTimer.current = setTimeout(() => {
+              pendingTitle.current = null;
+              update({ tripId: trip._id, title });
+            }, 750);
+          }}
+        />
+        <Button variant="outline" size="sm" onClick={flushPending}>
+          Save
+        </Button>
+      </div>
 
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm">
         <Input
