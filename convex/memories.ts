@@ -37,9 +37,12 @@ export const listMine = authedQuery({
 });
 
 // Returns null (not an error) for non-members so the page can render a friendly state.
+// Takes v.string(), not v.id(): a malformed URL id must render that state too, not throw.
 export const get = authedQuery({
-  args: { memoryId: v.id("memories") },
-  handler: async (ctx, { memoryId }) => {
+  args: { memoryId: v.string() },
+  handler: async (ctx, args) => {
+    const memoryId = ctx.db.normalizeId("memories", args.memoryId);
+    if (!memoryId) return null;
     const memory = await ctx.db.get(memoryId);
     if (!memory) return null;
     const membership = await ctx.db
