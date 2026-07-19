@@ -11,13 +11,6 @@ const itemBase = {
   location: v.optional(v.string()), // plain string for now, no geo
 };
 
-// Old union table; kept only until migrations:backfillItems empties it.
-const legacyItemBase = {
-  memoryId: v.id("memories"),
-  createdBy: v.string(),
-  tags: v.optional(v.array(v.string())),
-};
-
 export default defineSchema({
   users: defineTable({
     userId: v.string(),
@@ -109,44 +102,4 @@ export default defineSchema({
     key: v.string(), // R2 object key
     durationMs: v.optional(v.number()),
   }).index("by_memory_and_happenedAt", ["memoryId", "happenedAt"]),
-
-  items: defineTable(
-    v.union(
-      v.object({
-        ...legacyItemBase,
-        type: v.literal("flight"),
-        airline: v.string(),
-        flightNumber: v.string(),
-        from: v.string(),
-        to: v.string(),
-        departAt: v.number(),
-        arriveAt: v.number(),
-      }),
-      v.object({
-        ...legacyItemBase,
-        type: v.literal("drive"),
-        from: v.string(),
-        to: v.string(),
-        plannedAt: v.number(),
-        notes: v.optional(v.string()),
-      }),
-      v.object({
-        ...legacyItemBase,
-        type: v.literal("note"),
-        content: v.any(), // Tiptap JSON
-      }),
-      v.object({
-        ...legacyItemBase,
-        type: v.literal("image"),
-        key: v.string(), // R2 object key
-        caption: v.optional(v.string()),
-      }),
-      v.object({
-        ...legacyItemBase,
-        type: v.literal("voice"),
-        key: v.string(), // R2 object key
-        durationMs: v.optional(v.number()),
-      }),
-    ),
-  ).index("by_memory", ["memoryId"]),
 });
