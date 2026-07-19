@@ -48,7 +48,12 @@ function SignedOut() {
     <main className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
         <span className="text-lg font-semibold tracking-tight">Memories</span>
-        <Button variant="outline" size="sm" render={<a href="/login" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<a href="/login" />}
+        >
           Sign in
         </Button>
       </header>
@@ -65,7 +70,12 @@ function SignedOut() {
           Add flights and drives, invite the people going, and watch the trip
           come together in realtime. Drafts stay private until you publish.
         </p>
-        <Button size="lg" className="mt-8" render={<a href="/login" />}>
+        <Button
+          size="lg"
+          className="mt-8"
+          nativeButton={false}
+          render={<a href="/login" />}
+        >
           Get started
         </Button>
         <div className="mt-16 grid w-full gap-8 text-left sm:grid-cols-3">
