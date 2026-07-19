@@ -4,9 +4,9 @@ import { authkitLoader } from "@workos-inc/authkit-react-router";
 import {
   useConvexAuth,
   useMutation,
-  useQuery,
-  useQuery_experimental as useQueryWithStatus,
+  useQuery_experimental as useQuery,
 } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Car, Mic, Plane, Trash2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -28,14 +28,8 @@ import type { Route } from "./+types/memory";
 export const loader = (args: Route.LoaderArgs) =>
   authkitLoader(args, { ensureSignedIn: true });
 
-type MemoryDoc = NonNullable<
-  ReturnType<typeof useQuery<typeof api.memories.get>>
->;
-type Item = ReturnType<typeof useQuery<typeof api.items.list>> extends
-  | (infer T)[]
-  | undefined
-  ? T
-  : never;
+type MemoryDoc = NonNullable<FunctionReturnType<typeof api.memories.get>>;
+type Item = FunctionReturnType<typeof api.items.list>[number];
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -44,11 +38,11 @@ export default function MemoryPage() {
   const { id } = useParams();
   const memoryId = id as Id<"memories">;
   const { isAuthenticated } = useConvexAuth();
-  const memory = useQueryWithStatus({
+  const memory = useQuery({
     query: api.memories.get,
     args: isAuthenticated ? { memoryId } : "skip",
   });
-  const items = useQueryWithStatus({
+  const items = useQuery({
     query: api.items.list,
     args:
       isAuthenticated && memory.status === "success" && memory.data
