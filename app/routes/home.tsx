@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
 import { Button } from "~/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
+import { MemoryCard } from "~/components/memory-card";
 import type { Route } from "./+types/home";
 
 export function meta(_: Route.MetaArgs) {
@@ -19,15 +19,7 @@ export default function Home() {
   const user = useAuthKitUser();
   if (!user) return <SignedOut />;
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Memories</h1>
-        <form method="post" action="/signout">
-          <Button variant="ghost" size="sm" type="submit">
-            Sign out
-          </Button>
-        </form>
-      </header>
+    <main className="mx-auto w-full max-w-2xl px-4 py-6">
       <Dashboard />
     </main>
   );
@@ -255,16 +247,7 @@ function MemoryList({
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">{title}</h2>
       <div className="grid gap-3">
         {memories.map((m) => (
-          <Link key={m._id} to={`/memory/${m._id}`}>
-            <Card className="transition-colors hover:bg-accent/50">
-              <CardHeader>
-                <CardTitle>{m.title}</CardTitle>
-                <CardDescription>
-                  {m.role === "owner" ? "Owned by you" : "Shared with you"}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          <MemoryCard key={m._id} memory={m} />
         ))}
       </div>
     </section>

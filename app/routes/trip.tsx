@@ -1,0 +1,178 @@
+import { useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { authkitLoader } from "@workos-inc/authkit-react-router";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery_experimental as useQuery,
+} from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useAuthKitUser } from "~/lib/auth";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { MemoryCard } from "~/components/memory-card";
+import type { Route } from "./+types/trip";
+
+export const loader = (args: Route.LoaderArgs) =>
+  authkitLoader(args, { ensureSignedIn: true });
+
+type TripDoc = NonNullable<FunctionReturnType<typeof api.trips.get>>;
+
+const toDateInput = (ms?: number) =>
+  ms === undefined ? "" : new Date(ms).toISOString().slice(0, 10);
+
+export default function TripPage() {
+  const { id } = useParams();
+  const { isAuthenticated } = useConvexAuth();
+  const trip = useQuery({
+    query: api.trips.get,
+    args: isAuthenticated ? { tripId: id ?? "" } : "skip",
+  });
+
+  if (trip.status === "pending") {
+    return <Shell>Loading…</Shell>;
+  }
+  if (trip.status === "error") {
+    return <Shell>Something went wrong loading this trip. Try reloading.</Shell>;
+  }
+  if (trip.data === null) {
+    return <Shell>This trip doesn't exist, or you're not a member of it.</Shell>;
+  }
+  return <TripView trip={trip.data} />;
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-10">
+      <Link to="/" className="text-sm text-muted-foreground hover:underline">
+        ← Memories
+      </Link>
+      <p className="mt-10 text-center text-muted-foreground">{children}</p>
+    </main>
+  );
+}
+
+function TripView({ trip }: { trip: TripDoc }) {
+  const user = useAuthKitUser();
+  const { isAuthenticated } = useConvexAuth();
+  const update = useMutation(api.trips.update);
+  const addMemory = useMutation(api.trips.addMemory);
+  const removeMemory = useMutation(api.trips.removeMemory);
+  const createMemory = useMutation(api.memories.create);
+  const navigate = useNavigate();
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  const mine = useQuery({
+    query: api.memories.listMine,
+    args: isAuthenticated ? {} : "skip",
+  });
+  const ungrouped = (mine.status === "success" ? mine.data : []).filter(
+    (m) => !m.tripId,
+  );
+
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-10">
+      <Input
+        key={trip._id}
+        defaultValue={trip.title}
+        className="mb-4 border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
+        onChange={(e) => {
+          clearTimeout(titleTimer.current);
+          const title = e.target.value;
+          titleTimer.current = setTimeout(
+            () => update({ tripId: trip._id, title }),
+            750,
+          );
+        }}
+      />
+
+      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm">
+        <Input
+          type="date"
+          className="w-auto"
+          defaultValue={toDateInput(trip.startAt)}
+          onChange={(e) =>
+            update({
+              tripId: trip._id,
+              startAt: e.target.value ? Date.parse(e.target.value) : null,
+            })
+          }
+        />
+        <span className="text-muted-foreground">→</span>
+        <Input
+          type="date"
+          className="w-auto"
+          defaultValue={toDateInput(trip.endAt)}
+          onChange={(e) =>
+            update({
+              tripId: trip._id,
+              endAt: e.target.value ? Date.parse(e.target.value) : null,
+            })
+          }
+        />
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Button
+          onClick={async () =>
+            navigate(`/memory/${await createMemory({ tripId: trip._id })}`)
+          }
+        >
+          New memory
+        </Button>
+        {ungrouped.length > 0 && (
+          <select
+            value=""
+            onChange={(e) =>
+              e.target.value &&
+              addMemory({
+                tripId: trip._id,
+                memoryId: e.target.value as Id<"memories">,
+              })
+            }
+            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+          >
+            <option value="" disabled>
+              Add existing memory…
+            </option>
+            {ungrouped.map((m) => (
+              <option key={m._id} value={m._id}>
+                {m.title}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      <div className="grid gap-3">
+        {trip.memories.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No memories in this trip yet.
+          </p>
+        )}
+        {trip.memories.map((m) => (
+          <div key={m._id} className="group relative">
+            <MemoryCard
+              memory={{
+                ...m,
+                role: m.ownerId === user?.id ? "owner" : "member",
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={() => removeMemory({ memoryId: m._id })}
+            >
+              Remove from trip
+            </Button>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
