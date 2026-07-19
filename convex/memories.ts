@@ -76,6 +76,10 @@ export const update = memberMutation({
   args: {
     title: v.optional(v.string()),
     description: v.optional(v.any()),
+    kind: v.optional(literals("day", "week", "month", "trip", "custom")),
+    // null clears a previously set date
+    startAt: v.optional(v.union(v.number(), v.null())),
+    endAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(ctx.memory._id, {
@@ -83,6 +87,11 @@ export const update = memberMutation({
       ...(args.description !== undefined
         ? { description: args.description }
         : {}),
+      ...(args.kind !== undefined ? { kind: args.kind } : {}),
+      ...(args.startAt !== undefined
+        ? { startAt: args.startAt ?? undefined }
+        : {}),
+      ...(args.endAt !== undefined ? { endAt: args.endAt ?? undefined } : {}),
     });
   },
 });

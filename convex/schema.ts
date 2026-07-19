@@ -5,6 +5,7 @@ import { literals } from "convex-helpers/validators";
 const itemBase = {
   memoryId: v.id("memories"),
   createdBy: v.string(),
+  tags: v.optional(v.array(v.string())),
 };
 
 export default defineSchema({
@@ -21,9 +22,22 @@ export default defineSchema({
     ownerId: v.string(),
     status: literals("draft", "published"),
     inviteToken: v.string(),
+    // Time span the memory covers (ms epoch); optional for undated memories.
+    kind: v.optional(literals("day", "week", "month", "trip", "custom")),
+    startAt: v.optional(v.number()),
+    endAt: v.optional(v.number()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_token", ["inviteToken"]),
+
+  // One panel per calendar day of a memory: how the day looked (past) and
+  // how it could look (future). Weeks/months are derived groupings in the UI.
+  days: defineTable({
+    memoryId: v.id("memories"),
+    date: v.string(), // YYYY-MM-DD
+    past: v.optional(v.any()), // Tiptap JSON
+    future: v.optional(v.any()), // Tiptap JSON
+  }).index("by_memory_date", ["memoryId", "date"]),
 
   members: defineTable({
     memoryId: v.id("memories"),
