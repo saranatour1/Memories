@@ -1,7 +1,12 @@
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery,
+  useQuery_experimental as useQueryWithStatus,
+} from "convex/react";
 import { Car, Mic, Plane, Trash2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -39,26 +44,38 @@ export default function MemoryPage() {
   const { id } = useParams();
   const memoryId = id as Id<"memories">;
   const { isAuthenticated } = useConvexAuth();
-  const memory = useQuery(
-    api.memories.get,
-    isAuthenticated ? { memoryId } : "skip",
-  );
-  const items = useQuery(
-    api.items.list,
-    isAuthenticated && memory ? { memoryId } : "skip",
-  );
+  const memory = useQueryWithStatus({
+    query: api.memories.get,
+    args: isAuthenticated ? { memoryId } : "skip",
+  });
+  const items = useQueryWithStatus({
+    query: api.items.list,
+    args:
+      isAuthenticated && memory.status === "success" && memory.data
+        ? { memoryId }
+        : "skip",
+  });
 
-  if (memory === undefined) {
+  if (memory.status === "pending") {
     return <Shell>Loading…</Shell>;
   }
-  if (memory === null) {
+  if (memory.status === "error") {
+    return <Shell>Something went wrong loading this memory. Try reloading.</Shell>;
+  }
+  if (memory.data === null) {
     return (
       <Shell>
         You're not a member of this memory. Ask the owner for an invite link.
       </Shell>
     );
   }
-  return <MemoryView memory={memory} items={items ?? []} memoryId={memoryId} />;
+  return (
+    <MemoryView
+      memory={memory.data}
+      items={items.status === "success" ? items.data : []}
+      memoryId={memoryId}
+    />
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
