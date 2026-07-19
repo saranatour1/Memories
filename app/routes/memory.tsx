@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery_experimental as useQuery,
+} from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
   Car,
   Mic,
@@ -33,14 +38,8 @@ import type { Route } from "./+types/memory";
 export const loader = (args: Route.LoaderArgs) =>
   authkitLoader(args, { ensureSignedIn: true });
 
-type MemoryDoc = NonNullable<
-  ReturnType<typeof useQuery<typeof api.memories.get>>
->;
-type Item = ReturnType<typeof useQuery<typeof api.items.list>> extends
-  | (infer T)[]
-  | undefined
-  ? T
-  : never;
+type MemoryDoc = NonNullable<FunctionReturnType<typeof api.memories.get>>;
+type Item = FunctionReturnType<typeof api.items.list>[number];
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -62,26 +61,38 @@ export default function MemoryPage() {
   const { id } = useParams();
   const memoryId = id as Id<"memories">;
   const { isAuthenticated } = useConvexAuth();
-  const memory = useQuery(
-    api.memories.get,
-    isAuthenticated ? { memoryId } : "skip",
-  );
-  const items = useQuery(
-    api.items.list,
-    isAuthenticated && memory ? { memoryId } : "skip",
-  );
+  const memory = useQuery({
+    query: api.memories.get,
+    args: isAuthenticated ? { memoryId } : "skip",
+  });
+  const items = useQuery({
+    query: api.items.list,
+    args:
+      isAuthenticated && memory.status === "success" && memory.data
+        ? { memoryId }
+        : "skip",
+  });
 
-  if (memory === undefined) {
+  if (memory.status === "pending") {
     return <Shell>Loading…</Shell>;
   }
-  if (memory === null) {
+  if (memory.status === "error") {
+    return <Shell>Something went wrong loading this memory. Try reloading.</Shell>;
+  }
+  if (memory.data === null) {
     return (
       <Shell>
         You're not a member of this memory. Ask the owner for an invite link.
       </Shell>
     );
   }
-  return <MemoryView memory={memory} items={items ?? []} memoryId={memoryId} />;
+  return (
+    <MemoryView
+      memory={memory.data}
+      items={items.status === "success" ? items.data : []}
+      memoryId={memoryId}
+    />
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -303,7 +314,8 @@ function MemoryPlayer({
   items: Item[];
   onClose: () => void;
 }) {
-  const days = useQuery(api.days.list, { memoryId });
+  const daysResult = useQuery({ query: api.days.list, args: { memoryId } });
+  const days = daysResult.status === "success" ? daysResult.data : undefined;
   const slides = useMemo<Slide[]>(() => {
     const itemTime = (i: Item) =>
       i.type === "flight"
@@ -532,7 +544,8 @@ function DaysSection({
   startAt?: number;
   endAt?: number;
 }) {
-  const days = useQuery(api.days.list, { memoryId });
+  const daysResult = useQuery({ query: api.days.list, args: { memoryId } });
+  const days = daysResult.status === "success" ? daysResult.data : undefined;
   const upsert = useMutation(api.days.upsert);
   const [openDate, setOpenDate] = useState<string | null>(null);
 
