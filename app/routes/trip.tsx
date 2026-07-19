@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
 import {
@@ -62,17 +62,16 @@ function TripView({ trip }: { trip: TripDoc }) {
   const removeMemory = useMutation(api.trips.removeMemory);
   const createMemory = useMutation(api.memories.create);
   const navigate = useNavigate();
-  const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const pendingTitle = useRef<string | null>(null);
+  // Edits stay local until the Save button sends them in one mutation.
+  type Draft = { title?: string; startAt?: number | null; endAt?: number | null };
+  const [draft, setDraft] = useState<Draft>({});
+  const setField = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }));
+  const dirty = Object.keys(draft).length > 0;
 
-  const flushPending = () => {
-    clearTimeout(titleTimer.current);
-    if (pendingTitle.current !== null) {
-      update({ tripId: trip._id, title: pendingTitle.current });
-      pendingTitle.current = null;
-    }
+  const saveAll = async () => {
+    if (!dirty) return;
+    await update({ tripId: trip._id, ...draft });
+    setDraft({});
   };
 
   const mine = useQuery({
@@ -90,17 +89,17 @@ function TripView({ trip }: { trip: TripDoc }) {
           key={trip._id}
           defaultValue={trip.title}
           className="border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
-          onChange={(e) => {
-            clearTimeout(titleTimer.current);
-            const title = e.target.value;
-            pendingTitle.current = title;
-            titleTimer.current = setTimeout(() => {
-              pendingTitle.current = null;
-              update({ tripId: trip._id, title });
-            }, 750);
-          }}
+          onChange={(e) => setField({ title: e.target.value })}
         />
-        <Button variant="outline" size="sm" onClick={flushPending}>
+        {dirty && (
+          <span className="text-xs text-muted-foreground">Unsaved</span>
+        )}
+        <Button
+          variant={dirty ? "default" : "outline"}
+          size="sm"
+          disabled={!dirty}
+          onClick={saveAll}
+        >
           Save
         </Button>
       </div>
@@ -111,8 +110,7 @@ function TripView({ trip }: { trip: TripDoc }) {
           className="w-auto"
           defaultValue={toDateInput(trip.startAt)}
           onChange={(e) =>
-            update({
-              tripId: trip._id,
+            setField({
               startAt: e.target.value ? Date.parse(e.target.value) : null,
             })
           }
@@ -123,8 +121,7 @@ function TripView({ trip }: { trip: TripDoc }) {
           className="w-auto"
           defaultValue={toDateInput(trip.endAt)}
           onChange={(e) =>
-            update({
-              tripId: trip._id,
+            setField({
               endAt: e.target.value ? Date.parse(e.target.value) : null,
             })
           }

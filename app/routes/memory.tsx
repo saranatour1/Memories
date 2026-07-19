@@ -121,32 +121,34 @@ function MemoryView({
   const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
   const [copied, setCopied] = useState(false);
   const [watching, setWatching] = useState(false);
-  const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const pendingTitle = useRef<string | null>(null);
   const editorFlush = useRef<(() => void) | null>(null);
 
-  const save = async (patch: {
+  // Edits stay local until the Save button sends them in one mutation.
+  // The ref mirrors the state so saveAll sees a synchronous editor flush.
+  type Draft = {
     title?: string;
     description?: unknown;
     kind?: (typeof MEMORY_KINDS)[number];
     startAt?: number | null;
     endAt?: number | null;
-  }) => {
-    setSaved("saving");
-    await update({ memoryId, ...patch });
-    setSaved("saved");
   };
+  const draftRef = useRef<Draft>({});
+  const [draft, setDraftState] = useState<Draft>({});
+  const setField = (patch: Draft) => {
+    draftRef.current = { ...draftRef.current, ...patch };
+    setDraftState(draftRef.current);
+    setSaved("idle");
+  };
+  const dirty = Object.keys(draft).length > 0;
 
-  // Save any debounced edits (title, description) right now.
-  const flushPending = () => {
-    clearTimeout(titleTimer.current);
-    if (pendingTitle.current !== null) {
-      save({ title: pendingTitle.current });
-      pendingTitle.current = null;
-    }
-    editorFlush.current?.();
+  const saveAll = async () => {
+    editorFlush.current?.(); // pulls any in-flight description edit into the draft
+    if (Object.keys(draftRef.current).length === 0) return;
+    setSaved("saving");
+    await update({ memoryId, ...draftRef.current });
+    draftRef.current = {};
+    setDraftState({});
+    setSaved("saved");
   };
 
   const sorted = [...items].sort((a, b) => a.happenedAt - b.happenedAt);
@@ -162,9 +164,21 @@ function MemoryView({
         </Link>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}
+            {dirty
+              ? "Unsaved changes"
+              : saved === "saving"
+                ? "Saving…"
+                : saved === "saved"
+                  ? "Saved"
+                  : ""}
           </span>
-          <Button variant="outline" size="sm" onClick={flushPending}>
+          {/* Not disabled when clean: the editor debounce may hold an edit
+              that only lands in the draft when saveAll flushes it. */}
+          <Button
+            variant={dirty ? "default" : "outline"}
+            size="sm"
+            onClick={saveAll}
+          >
             Save
           </Button>
         </div>
@@ -175,15 +189,7 @@ function MemoryView({
           key={memory._id}
           defaultValue={memory.title}
           className="border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 md:text-2xl"
-          onChange={(e) => {
-            clearTimeout(titleTimer.current);
-            const title = e.target.value;
-            pendingTitle.current = title;
-            titleTimer.current = setTimeout(() => {
-              pendingTitle.current = null;
-              save({ title });
-            }, 750);
-          }}
+          onChange={(e) => setField({ title: e.target.value })}
         />
         <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
           {memory.status}
@@ -234,10 +240,10 @@ function MemoryView({
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <select
-          value={memory.kind ?? ""}
+          value={draft.kind ?? memory.kind ?? ""}
           onChange={(e) =>
             e.target.value &&
-            save({ kind: e.target.value as (typeof MEMORY_KINDS)[number] })
+            setField({ kind: e.target.value as (typeof MEMORY_KINDS)[number] })
           }
           className="h-9 rounded-md border bg-transparent px-2"
         >
@@ -255,7 +261,9 @@ function MemoryView({
           className="w-auto"
           defaultValue={toDateInput(memory.startAt)}
           onChange={(e) =>
-            save({ startAt: e.target.value ? Date.parse(e.target.value) : null })
+            setField({
+              startAt: e.target.value ? Date.parse(e.target.value) : null,
+            })
           }
         />
         <span className="text-muted-foreground">→</span>
@@ -264,14 +272,16 @@ function MemoryView({
           className="w-auto"
           defaultValue={toDateInput(memory.endAt)}
           onChange={(e) =>
-            save({ endAt: e.target.value ? Date.parse(e.target.value) : null })
+            setField({
+              endAt: e.target.value ? Date.parse(e.target.value) : null,
+            })
           }
         />
       </div>
 
       <Editor
         content={memory.description}
-        onUpdate={(description) => save({ description })}
+        onUpdate={(description) => setField({ description })}
         flushRef={editorFlush}
         className="mb-8"
       />
