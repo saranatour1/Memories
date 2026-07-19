@@ -1,87 +1,65 @@
-# Welcome to React Router!
+# Memories
 
-A modern, production-ready template for building full-stack React applications using React Router.
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+Plan trips and keep memories together. Add flights, drives, notes, photos and
+voice memos to a shared timeline, invite people with one link, and watch
+everything update in realtime. Drafts stay private until you publish.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- **Memories** with a type (day / week / month / trip / custom), an optional
+  start–end date range, and a rich-text description
+- **Day panels** — for each day in the range, write how the day looked (past)
+  and how it could look (future), grouped into calendar weeks and months
+- **Items** — flights, drives, notes, images and voice memos, each with
+  multiple tags
+- **Calendar view** on the home page showing memories across their date spans
+- **Watch mode** — play a memory back like a video, slide per day/item, with
+  play/pause, prev/next and 0.5×–2× speed
+- **Collaboration** — invite via link, realtime updates, draft/publish
 
-## Getting Started
+## Stack
 
-### Installation
+- [React Router 7](https://reactrouter.com/) (SSR) + Tailwind + Base UI
+- [Convex](https://convex.dev) backend (schema in `convex/schema.ts`)
+- [WorkOS AuthKit](https://workos.com) auth via the
+  [`@convex-dev/workos-authkit`](https://www.convex.dev/components/workos-authkit)
+  component (webhook-driven user sync)
+- Cloudflare R2 for media via `@convex-dev/r2`
+- Tiptap for rich text
 
-Install the dependencies:
+## Development
 
-```bash
-npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
-npm run dev
-```
-
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
+Uses **pnpm**.
 
 ```bash
-npm run build
+pnpm install
+npx convex dev   # deploys backend + regenerates types, keep running
+pnpm dev         # app on http://localhost:5173
 ```
 
-## Deployment
+### Environment
 
-### Docker Deployment
+`.env.local` (app): `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`,
+`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_REDIRECT_URI`,
+`WORKOS_COOKIE_PASSWORD`.
 
-To build and run using Docker:
+Convex deployment (`npx convex env set …`): `WORKOS_API_KEY`,
+`WORKOS_CLIENT_ID`, `WORKOS_WEBHOOK_SECRET`.
+
+For user sync, create a webhook in the WorkOS dashboard pointing at
+`https://<deployment>.convex.site/workos/webhook` with the `user.created`,
+`user.updated` and `user.deleted` events, and set its signing secret as
+`WORKOS_WEBHOOK_SECRET`.
+
+### Seed data
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npx convex run seed:run
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+Creates (or resets) a sample trip with flights, drives, tagged notes and day
+panels for testing.
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+## Production
 
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+`pnpm build` then serve with `pnpm start`, or use the included `Dockerfile`.

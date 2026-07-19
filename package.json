@@ -11,6 +11,7 @@
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@convex-dev/r2": "^0.10.2",
+    "@convex-dev/workos-authkit": "^0.2.7",
     "@fontsource-variable/geist": "^5.2.9",
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
