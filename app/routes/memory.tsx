@@ -137,13 +137,7 @@ function MemoryView({
     setSaved("saved");
   };
 
-  const sortKey = (i: Item) =>
-    i.type === "flight"
-      ? i.departAt
-      : i.type === "drive"
-        ? i.plannedAt
-        : i._creationTime;
-  const sorted = [...items].sort((a, b) => sortKey(a) - sortKey(b));
+  const sorted = [...items].sort((a, b) => a.happenedAt - b.happenedAt);
   const isOwner = memory.role === "owner";
   const nameOf = (userId: string) =>
     memory.members.find((m) => m.userId === userId)?.name ?? "Someone";
@@ -317,12 +311,6 @@ function MemoryPlayer({
   const daysResult = useQuery({ query: api.days.list, args: { memoryId } });
   const days = daysResult.status === "success" ? daysResult.data : undefined;
   const slides = useMemo<Slide[]>(() => {
-    const itemTime = (i: Item) =>
-      i.type === "flight"
-        ? i.departAt
-        : i.type === "drive"
-          ? i.plannedAt
-          : i._creationTime;
     return [
       ...(days ?? [])
         .filter((d) => d.past !== undefined || d.future !== undefined)
@@ -335,7 +323,7 @@ function MemoryPlayer({
         })),
       ...items.map((item) => ({
         kind: "item" as const,
-        time: itemTime(item),
+        time: item.happenedAt,
         item,
       })),
     ].sort((a, b) => a.time - b.time);
@@ -745,9 +733,8 @@ function ItemRow({
           <p className="mt-1 text-xs text-muted-foreground">
             {item.type === "flight"
               ? `${when(item.departAt)} → ${when(item.arriveAt)}`
-              : item.type === "drive"
-                ? when(item.plannedAt)
-                : when(item._creationTime)}
+              : when(item.happenedAt)}
+            {item.location ? ` · ${item.location}` : ""}
             {" · "}
             {authorName}
           </p>
@@ -757,7 +744,7 @@ function ItemRow({
             variant="ghost"
             size="icon"
             className="opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={() => remove({ itemId: item._id })}
+            onClick={() => remove({ type: item.type, id: item._id })}
           >
             <Trash2 className="size-4" />
           </Button>
