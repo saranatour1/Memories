@@ -37,15 +37,24 @@ export const listMine = authedQuery({
       .query("tripMembers")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
-    const trips = await Promise.all(memberships.map((m) => ctx.db.get(m.tripId)));
+    const rows = await Promise.all(
+      memberships.map(async (m) => ({
+        trip: await ctx.db.get(m.tripId),
+        role: m.role,
+      })),
+    );
     return Promise.all(
-      trips
-        .filter((t) => t !== null)
-        .map(async (trip, i) => ({
-          ...trip,
-          role: memberships[i].role,
-          memories: await memoriesOf(ctx, trip._id),
-        })),
+      rows.flatMap(({ trip, role }) =>
+        trip
+          ? [
+              memoriesOf(ctx, trip._id).then((memories) => ({
+                ...trip,
+                role,
+                memories,
+              })),
+            ]
+          : [],
+      ),
     );
   },
 });

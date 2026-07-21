@@ -40,6 +40,7 @@ export function FlightDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               to: f.get("to") as string,
               departAt: new Date(f.get("departAt") as string).getTime(),
               arriveAt: new Date(f.get("arriveAt") as string).getTime(),
+              location: (f.get("location") as string) || undefined,
               tags: parseTags(f.get("tags")),
             });
             setOpen(false);
@@ -53,6 +54,7 @@ export function FlightDialog({ memoryId }: { memoryId: Id<"memories"> }) {
             <Field name="departAt" label="Departs" type="datetime-local" />
             <Field name="arriveAt" label="Arrives" type="datetime-local" />
           </div>
+          <Field name="location" label="Location" required={false} />
           <Field name="tags" label="Tags (comma separated)" required={false} />
           <Button type="submit">Add flight</Button>
         </form>
@@ -84,6 +86,7 @@ export function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               to: f.get("to") as string,
               plannedAt: new Date(f.get("plannedAt") as string).getTime(),
               notes: (f.get("notes") as string) || undefined,
+              location: (f.get("location") as string) || undefined,
               tags: parseTags(f.get("tags")),
             });
             setOpen(false);
@@ -95,6 +98,7 @@ export function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
             <Field name="plannedAt" label="When" type="datetime-local" />
             <Field name="notes" label="Notes" required={false} />
           </div>
+          <Field name="location" label="Location" required={false} />
           <Field name="tags" label="Tags (comma separated)" required={false} />
           <Button type="submit">Add drive</Button>
         </form>
@@ -107,6 +111,7 @@ export function NoteDialog({ memoryId }: { memoryId: Id<"memories"> }) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState<unknown>(null);
   const [tagsText, setTagsText] = useState("");
+  const [locationText, setLocationText] = useState("");
   const addNote = useMutation(api.items.addNote);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -119,6 +124,11 @@ export function NoteDialog({ memoryId }: { memoryId: Id<"memories"> }) {
         </DialogHeader>
         <Editor content={undefined} onUpdate={setContent} />
         <Input
+          placeholder="Location"
+          value={locationText}
+          onChange={(e) => setLocationText(e.target.value)}
+        />
+        <Input
           placeholder="Tags (comma separated)"
           value={tagsText}
           onChange={(e) => setTagsText(e.target.value)}
@@ -126,9 +136,15 @@ export function NoteDialog({ memoryId }: { memoryId: Id<"memories"> }) {
         <Button
           disabled={content === null}
           onClick={async () => {
-            await addNote({ memoryId, content, tags: parseTags(tagsText) });
+            await addNote({
+              memoryId,
+              content,
+              location: locationText.trim() || undefined,
+              tags: parseTags(tagsText),
+            });
             setContent(null);
             setTagsText("");
+            setLocationText("");
             setOpen(false);
           }}
         >
