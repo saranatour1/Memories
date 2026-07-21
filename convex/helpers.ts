@@ -31,6 +31,24 @@ export async function requireMembership(
   return { userId, memory, membership };
 }
 
+export async function requireTripMembership(
+  ctx: QueryCtx,
+  tripId: Id<"trips">,
+) {
+  const identity = await requireIdentity(ctx);
+  const userId = identity.subject;
+  const trip = await ctx.db.get(tripId);
+  if (!trip) throw new Error("Trip not found");
+  const membership = await ctx.db
+    .query("tripMembers")
+    .withIndex("by_trip_and_user", (q) =>
+      q.eq("tripId", tripId).eq("userId", userId),
+    )
+    .unique();
+  if (!membership) throw new Error("Not a member of this trip");
+  return { userId, trip, membership };
+}
+
 const authed = customCtx(async (ctx: QueryCtx) => {
   const identity = await requireIdentity(ctx);
   return { identity, userId: identity.subject };

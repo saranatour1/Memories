@@ -16,6 +16,7 @@ import type * as http from "../http.js";
 import type * as items from "../items.js";
 import type * as memories from "../memories.js";
 import type * as seed from "../seed.js";
+import type * as trips from "../trips.js";
 import type * as users from "../users.js";
 
 import type {
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   items: typeof items;
   memories: typeof memories;
   seed: typeof seed;
+  trips: typeof trips;
   users: typeof users;
 }>;
 

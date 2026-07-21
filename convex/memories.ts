@@ -1,15 +1,22 @@
 import { v } from "convex/values";
 import { literals } from "convex-helpers/validators";
-import { authedMutation, authedQuery, memberMutation } from "./helpers";
+import {
+  authedMutation,
+  authedQuery,
+  memberMutation,
+  requireTripMembership,
+} from "./helpers";
 
 export const create = authedMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { tripId: v.optional(v.id("trips")) },
+  handler: async (ctx, { tripId }) => {
+    if (tripId) await requireTripMembership(ctx, tripId);
     const memoryId = await ctx.db.insert("memories", {
       title: "Untitled memory",
       ownerId: ctx.userId,
       status: "draft",
       inviteToken: crypto.randomUUID(),
+      tripId,
     });
     await ctx.db.insert("members", {
       memoryId,
@@ -27,12 +34,15 @@ export const listMine = authedQuery({
       .query("members")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
-    const memories = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.memoryId)),
+    const rows = await Promise.all(
+      memberships.map(async (m) => ({
+        memory: await ctx.db.get(m.memoryId),
+        role: m.role,
+      })),
     );
-    return memories
-      .filter((m) => m !== null)
-      .map((memory, i) => ({ ...memory, role: memberships[i].role }));
+    return rows.flatMap((r) =>
+      r.memory ? [{ ...r.memory, role: r.role }] : [],
+    );
   },
 });
 

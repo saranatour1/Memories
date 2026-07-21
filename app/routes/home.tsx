@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery_experimental as useQuery,
+} from "convex/react";
 import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
+import { DAY_MS, type MemoryListItem } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
+import { MemoryCard } from "~/components/memory-card";
 import type { Route } from "./+types/home";
 
 export function meta(_: Route.MetaArgs) {
@@ -19,15 +24,7 @@ export default function Home() {
   const user = useAuthKitUser();
   if (!user) return <SignedOut />;
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Memories</h1>
-        <form method="post" action="/signout">
-          <Button variant="ghost" size="sm" type="submit">
-            Sign out
-          </Button>
-        </form>
-      </header>
+    <main className="mx-auto w-full max-w-2xl px-4 py-6">
       <Dashboard />
     </main>
   );
@@ -56,7 +53,12 @@ function SignedOut() {
     <main className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
         <span className="text-lg font-semibold tracking-tight">Memories</span>
-        <Button variant="outline" size="sm" render={<a href="/login" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<a href="/login" />}
+        >
           Sign in
         </Button>
       </header>
@@ -73,7 +75,12 @@ function SignedOut() {
           Add flights and drives, invite the people going, and watch the trip
           come together in realtime. Drafts stay private until you publish.
         </p>
-        <Button size="lg" className="mt-8" render={<a href="/login" />}>
+        <Button
+          size="lg"
+          className="mt-8"
+          nativeButton={false}
+          render={<a href="/login" />}
+        >
           Get started
         </Button>
         <div className="mt-16 grid w-full gap-8 text-left sm:grid-cols-3">
@@ -99,7 +106,11 @@ function Dashboard() {
   const ensure = useMutation(api.users.ensure);
   const create = useMutation(api.memories.create);
   const navigate = useNavigate();
-  const memories = useQuery(api.memories.listMine, isAuthenticated ? {} : "skip");
+  const result = useQuery({
+    query: api.memories.listMine,
+    args: isAuthenticated ? {} : "skip",
+  });
+  const memories = result.status === "success" ? result.data : undefined;
   const ensured = useRef(false);
 
   useEffect(() => {
@@ -136,7 +147,11 @@ function Dashboard() {
           ))}
         </div>
       </div>
-      {memories === undefined ? (
+      {result.status === "error" ? (
+        <p className="text-muted-foreground">
+          Couldn't load your memories. Try reloading.
+        </p>
+      ) : memories === undefined ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : view === "calendar" ? (
         <CalendarView memories={memories} />
@@ -150,10 +165,7 @@ function Dashboard() {
   );
 }
 
-const DAY_MS = 86_400_000;
-type Memory = NonNullable<
-  ReturnType<typeof useQuery<typeof api.memories.listMine>>
->[number];
+type Memory = MemoryListItem;
 
 function CalendarView({ memories }: { memories: Memory[] }) {
   const [month, setMonth] = useState(() => {
@@ -255,16 +267,7 @@ function MemoryList({
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">{title}</h2>
       <div className="grid gap-3">
         {memories.map((m) => (
-          <Link key={m._id} to={`/memory/${m._id}`}>
-            <Card className="transition-colors hover:bg-accent/50">
-              <CardHeader>
-                <CardTitle>{m.title}</CardTitle>
-                <CardDescription>
-                  {m.role === "owner" ? "Owned by you" : "Shared with you"}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          <MemoryCard key={m._id} memory={m} />
         ))}
       </div>
     </section>
