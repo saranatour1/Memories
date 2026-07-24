@@ -17,6 +17,7 @@ export function MemoryCard({
         <CardHeader>
           <CardTitle>{memory.title}</CardTitle>
           <CardDescription>
+            Published testonggng;jdslkhjgslkhjlksdhfgflkhsdklhslkhdflksdhflksdhlkf
             {memory.role === "owner" ? "Owned by you" : "Shared with you"}
           </CardDescription>
         </CardHeader>
