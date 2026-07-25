@@ -7,7 +7,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Editor } from "~/components/editor";
 import { Label } from "~/components/ui/label";
-import { DAY_MS } from "~/lib/memory";
+import { DateTime } from "luxon";
+import { DAY_MS, utcDate } from "~/lib/memory";
 
 // Day panels for the memory's date range: pick a day, write how it looked
 // (past) and how it could look (future). Days are grouped into calendar
@@ -38,7 +39,7 @@ export function DaysSection({
   const dates: string[] = [];
   // ponytail: capped at 366 days; split bigger spans into separate memories
   for (let t = startAt; t <= endAt && dates.length <= 366; t += DAY_MS) {
-    dates.push(new Date(t).toISOString().slice(0, 10));
+    dates.push(DateTime.fromMillis(t, { zone: "utc" }).toISODate() ?? "");
   }
   const months = new Map<string, string[]>();
   for (const d of dates) {
@@ -55,16 +56,16 @@ export function DaysSection({
       {[...months.entries()].map(([month, monthDates]) => (
         <div key={month} className="mb-3">
           <p className="mb-1 text-xs text-muted-foreground">
-            {new Date(`${month}-01`).toLocaleDateString([], {
+            {utcDate(`${month}-01`).toLocaleString({
               month: "long",
               year: "numeric",
-              timeZone: "UTC",
             })}
           </p>
           <div className="grid grid-cols-7 gap-1">
-            {/* offset so each row is a real Sunday-to-Saturday week */}
+            {/* offset so each row is a real Sunday-to-Saturday week
+                (luxon weekday is Mon=1…Sun=7, so %7 puts Sunday at 0) */}
             {Array.from({
-              length: new Date(monthDates[0]).getUTCDay(),
+              length: utcDate(monthDates[0]).weekday % 7,
             }).map((_, i) => (
               <span key={i} />
             ))}
@@ -95,13 +96,7 @@ export function DaysSection({
       {openDate && (
         <div key={openDate} className="mt-3 rounded-lg border p-4">
           <p className="mb-3 text-sm font-medium">
-            {new Date(openDate).toLocaleDateString([], {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-              timeZone: "UTC",
-            })}
+            {utcDate(openDate).toLocaleString(DateTime.DATE_HUGE)}
           </p>
           <Label className="mb-1 block text-xs text-muted-foreground">
             How the day looked

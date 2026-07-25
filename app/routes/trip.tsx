@@ -10,7 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useAuthKitUser } from "~/lib/auth";
-import { toDateInput } from "~/lib/memory";
+import { fromDateInput, toDateInput } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { MemoryCard } from "~/components/memory-card";
@@ -108,7 +108,7 @@ function TripView({ trip }: { trip: TripDoc }) {
           defaultValue={toDateInput(trip.startAt)}
           onChange={(e) =>
             setField({
-              startAt: e.target.value ? Date.parse(e.target.value) : null,
+              startAt: e.target.value ? fromDateInput(e.target.value) : null,
             })
           }
         />
@@ -119,7 +119,7 @@ function TripView({ trip }: { trip: TripDoc }) {
           defaultValue={toDateInput(trip.endAt)}
           onChange={(e) =>
             setField({
-              endAt: e.target.value ? Date.parse(e.target.value) : null,
+              endAt: e.target.value ? fromDateInput(e.target.value) : null,
             })
           }
         />

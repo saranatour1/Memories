@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { fromLocalInput } from "~/lib/memory";
 import { Editor } from "~/components/editor";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -38,8 +39,8 @@ export function FlightDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               flightNumber: f.get("flightNumber") as string,
               from: f.get("from") as string,
               to: f.get("to") as string,
-              departAt: new Date(f.get("departAt") as string).getTime(),
-              arriveAt: new Date(f.get("arriveAt") as string).getTime(),
+              departAt: fromLocalInput(f.get("departAt")),
+              arriveAt: fromLocalInput(f.get("arriveAt")),
               location: (f.get("location") as string) || undefined,
               tags: parseTags(f.get("tags")),
             });
@@ -84,7 +85,7 @@ export function DriveDialog({ memoryId }: { memoryId: Id<"memories"> }) {
               memoryId,
               from: f.get("from") as string,
               to: f.get("to") as string,
-              plannedAt: new Date(f.get("plannedAt") as string).getTime(),
+              plannedAt: fromLocalInput(f.get("plannedAt")),
               notes: (f.get("notes") as string) || undefined,
               location: (f.get("location") as string) || undefined,
               tags: parseTags(f.get("tags")),

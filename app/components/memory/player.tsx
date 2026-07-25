@@ -14,7 +14,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { count, type Item, relative, when } from "~/lib/memory";
+import { DateTime } from "luxon";
+import { count, type Item, relative, utcDate, when } from "~/lib/memory";
 
 const SLIDE_MS = 4000;
 const SPEEDS = [0.5, 1, 1.5, 2] as const;
@@ -44,7 +45,7 @@ export function MemoryPlayer({
         .filter((d) => d.past !== undefined || d.future !== undefined)
         .map((d) => ({
           kind: "day" as const,
-          time: Date.parse(d.date),
+          time: utcDate(d.date).toMillis(),
           date: d.date,
           past: d.past,
           future: d.future,
@@ -159,13 +160,7 @@ function SlideView({ slide }: { slide: Slide }) {
     return (
       <div>
         <p className="mb-4 text-center text-lg font-medium">
-          {new Date(slide.date).toLocaleDateString([], {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-            timeZone: "UTC",
-          })}
+          {utcDate(slide.date).toLocaleString(DateTime.DATE_HUGE)}
         </p>
         {slide.past !== undefined && (
           <div className="mb-4">

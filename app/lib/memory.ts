@@ -1,4 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
+import { DateTime } from "luxon";
 import { api } from "../../convex/_generated/api";
 
 export type MemoryDoc = NonNullable<
@@ -14,34 +15,33 @@ export const MEMORY_KINDS = ["day", "week", "month", "trip", "custom"] as const;
 export const DAY_MS = 86_400_000;
 
 export const when = (ms: number) =>
-  new Date(ms).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  DateTime.fromMillis(ms).toLocaleString(DateTime.DATETIME_MED);
 
-const RELATIVE_UNITS = [
-  ["year", 365 * DAY_MS],
-  ["month", 30 * DAY_MS],
-  ["week", 7 * DAY_MS],
-  ["day", DAY_MS],
-  ["hour", 3_600_000],
-  ["minute", 60_000],
-  ["second", 1_000],
-] as const;
+/** "3 days ago", "in 2 months" — largest unit that fits. */
+export const relative = (ms: number, base = DateTime.now()) =>
+  DateTime.fromMillis(ms).toRelative({ base }) ?? "";
 
-/** "yesterday", "in 3 months", "now" — largest unit that fits. */
-export const relative = (ms: number, now = Date.now()) => {
-  const diff = ms - now;
-  const [unit, size] =
-    RELATIVE_UNITS.find(([, s]) => Math.abs(diff) >= s) ??
-    RELATIVE_UNITS[RELATIVE_UNITS.length - 1];
-  return new Intl.RelativeTimeFormat([], { numeric: "auto" }).format(
-    Math.round(diff / size),
-    unit,
-  );
-};
-
+// ponytail: luxon has no number formatting, so this stays native Intl.
 export const count = (n: number) => new Intl.NumberFormat([]).format(n);
 
+/**
+ * Day dates are stored as UTC midnight, so they must be read in UTC —
+ * parsing them locally shifts the day for anyone west of UTC. See #1.
+ */
+export const utcDate = (iso: string) => DateTime.fromISO(iso, { zone: "utc" });
+
 export const toDateInput = (ms?: number) =>
-  ms === undefined ? "" : new Date(ms).toISOString().slice(0, 10);
+  ms === undefined
+    ? ""
+    : (DateTime.fromMillis(ms, { zone: "utc" }).toISODate() ?? "");
+
+/** `<input type="date">` value → UTC-midnight ms, matching how dates are stored. */
+export const fromDateInput = (value: string) =>
+  DateTime.fromISO(value, { zone: "utc" }).toMillis();
+
+/** `<input type="datetime-local">` value → ms in the viewer's own zone. */
+export const fromLocalInput = (value: FormDataEntryValue | null) =>
+  DateTime.fromISO(String(value ?? "")).toMillis();
 
 export const parseTags = (raw: FormDataEntryValue | string | null) => {
   const tags = String(raw ?? "")
