@@ -8,6 +8,7 @@ import { Plus } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
 import { Button } from "~/components/ui/button";
+import { ThemeToggle } from "~/components/theme-toggle";
 import {
   Sidebar,
   SidebarContent,
@@ -164,6 +165,7 @@ export function AppSidebar() {
               </p>
             )}
           </div>
+          <ThemeToggle />
           <form method="post" action="/signout">
             <Button variant="ghost" size="sm" type="submit">
               Sign out

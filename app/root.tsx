@@ -17,27 +17,24 @@ import "./app.css";
 
 export const loader = (args: Route.LoaderArgs) => authkitLoader(args);
 
-export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // the theme script below sets a class here before React hydrates, which
+    // React would otherwise flag as a mismatch it refuses to patch up
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        {/* Applies a pinned theme before first paint, so it doesn't flash the
+            other one. No stored value means the OS preference wins. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.theme;if(t==="light"||t==="dark")document.documentElement.classList.add(t)}catch(e){}`,
+          }}
+        />
       </head>
       <body>
         {children}
