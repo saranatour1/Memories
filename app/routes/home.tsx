@@ -8,7 +8,7 @@ import {
 import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
-import { DAY_MS, type MemoryListItem } from "~/lib/memory";
+import { count, DAY_MS, type MemoryListItem } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
 import { MemoryCard } from "~/components/memory-card";
 import type { Route } from "./+types/home";
@@ -246,7 +246,8 @@ function CalendarView({ memories }: { memories: Memory[] }) {
       </div>
       {undatedCount > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          {undatedCount} {undatedCount === 1 ? "memory has" : "memories have"} no
+          {count(undatedCount)}{" "}
+          {undatedCount === 1 ? "memory has" : "memories have"} no
           dates and only appear in the list view.
         </p>
       )}

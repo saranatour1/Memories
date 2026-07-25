@@ -58,6 +58,7 @@ export function DaysSection({
             {new Date(`${month}-01`).toLocaleDateString([], {
               month: "long",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </p>
           <div className="grid grid-cols-7 gap-1">
@@ -99,6 +100,7 @@ export function DaysSection({
               month: "long",
               day: "numeric",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </p>
           <Label className="mb-1 block text-xs text-muted-foreground">

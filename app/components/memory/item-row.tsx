@@ -3,7 +3,7 @@ import { Car, Mic, Plane, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { type Item, when } from "~/lib/memory";
+import { type Item, relative, when } from "~/lib/memory";
 
 export function ItemRow({
   item,
@@ -78,8 +78,8 @@ export function ItemRow({
           )}
           <p className="mt-1 text-xs text-muted-foreground">
             {item.type === "flight"
-              ? `${when(item.departAt)} → ${when(item.arriveAt)}`
-              : when(item.happenedAt)}
+              ? `${when(item.departAt)} → ${when(item.arriveAt)} (${relative(item.departAt)})`
+              : `${when(item.happenedAt)} (${relative(item.happenedAt)})`}
             {item.location ? ` · ${item.location}` : ""}
             {" · "}
             {authorName}

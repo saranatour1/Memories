@@ -14,7 +14,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { type Item, when } from "~/lib/memory";
+import { count, type Item, relative, when } from "~/lib/memory";
 
 const SLIDE_MS = 4000;
 const SPEEDS = [0.5, 1, 1.5, 2] as const;
@@ -144,7 +144,9 @@ export function MemoryPlayer({
             {speed}×
           </Button>
           <span className="text-xs text-muted-foreground">
-            {slides.length === 0 ? "0 / 0" : `${index + 1} / ${slides.length}`}
+            {slides.length === 0
+              ? "0 / 0"
+              : `${count(index + 1)} / ${count(slides.length)}`}
           </span>
         </div>
       </div>
@@ -162,6 +164,7 @@ function SlideView({ slide }: { slide: Slide }) {
             month: "long",
             day: "numeric",
             year: "numeric",
+            timeZone: "UTC",
           })}
         </p>
         {slide.past !== undefined && (
@@ -196,7 +199,8 @@ function SlideView({ slide }: { slide: Slide }) {
             {item.from} → {item.to}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {when(item.departAt)} → {when(item.arriveAt)}
+            {when(item.departAt)} → {when(item.arriveAt)} (
+            {relative(item.departAt)})
           </p>
         </div>
       )}
@@ -208,7 +212,7 @@ function SlideView({ slide }: { slide: Slide }) {
           </p>
           {item.notes && <p className="text-muted-foreground">{item.notes}</p>}
           <p className="mt-1 text-sm text-muted-foreground">
-            {when(item.plannedAt)}
+            {when(item.plannedAt)} ({relative(item.plannedAt)})
           </p>
         </div>
       )}
