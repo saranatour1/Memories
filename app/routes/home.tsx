@@ -8,7 +8,8 @@ import {
 import { ChevronLeft, ChevronRight, Mic, Plane, Users } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useAuthKitUser } from "~/lib/auth";
-import { DAY_MS, type MemoryListItem } from "~/lib/memory";
+import { DateTime } from "luxon";
+import { count, DAY_MS, type MemoryListItem } from "~/lib/memory";
 import { Button } from "~/components/ui/button";
 import { MemoryCard } from "~/components/memory-card";
 import type { Route } from "./+types/home";
@@ -168,14 +169,16 @@ function Dashboard() {
 type Memory = MemoryListItem;
 
 function CalendarView({ memories }: { memories: Memory[] }) {
+  // The grid is UTC-dated (that's how memory dates are stored), but it opens
+  // on the viewer's current month.
   const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return Date.UTC(now.getFullYear(), now.getMonth(), 1);
+    const now = DateTime.local();
+    return DateTime.utc(now.year, now.month, 1).toMillis();
   });
-  const year = new Date(month).getUTCFullYear();
-  const mon = new Date(month).getUTCMonth();
-  const daysInMonth = new Date(Date.UTC(year, mon + 1, 0)).getUTCDate();
-  const offset = new Date(month).getUTCDay();
+  const first = DateTime.fromMillis(month, { zone: "utc" });
+  const daysInMonth = first.daysInMonth ?? 0;
+  // luxon weekday is Mon=1…Sun=7, so %7 puts Sunday at 0
+  const offset = first.weekday % 7;
 
   const dated = memories.filter((m) => m.startAt !== undefined);
   const undatedCount = memories.length - dated.length;
@@ -189,24 +192,20 @@ function CalendarView({ memories }: { memories: Memory[] }) {
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium">
-          {new Date(month).toLocaleDateString([], {
-            month: "long",
-            year: "numeric",
-            timeZone: "UTC",
-          })}
+          {first.toLocaleString({ month: "long", year: "numeric" })}
         </h2>
         <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMonth(Date.UTC(year, mon - 1, 1))}
+            onClick={() => setMonth(first.minus({ months: 1 }).toMillis())}
           >
             <ChevronLeft className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMonth(Date.UTC(year, mon + 1, 1))}
+            onClick={() => setMonth(first.plus({ months: 1 }).toMillis())}
           >
             <ChevronRight className="size-4" />
           </Button>
@@ -222,7 +221,7 @@ function CalendarView({ memories }: { memories: Memory[] }) {
           <span key={`pad-${i}`} />
         ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
-          const dayStart = Date.UTC(year, mon, i + 1);
+          const dayStart = first.plus({ days: i }).toMillis();
           const hits = onDay(dayStart);
           return (
             <div
@@ -246,7 +245,8 @@ function CalendarView({ memories }: { memories: Memory[] }) {
       </div>
       {undatedCount > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          {undatedCount} {undatedCount === 1 ? "memory has" : "memories have"} no
+          {count(undatedCount)}{" "}
+          {undatedCount === 1 ? "memory has" : "memories have"} no
           dates and only appear in the list view.
         </p>
       )}

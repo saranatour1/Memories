@@ -14,7 +14,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { type Item, when } from "~/lib/memory";
+import { DateTime } from "luxon";
+import { count, type Item, relative, utcDate, when } from "~/lib/memory";
 
 const SLIDE_MS = 4000;
 const SPEEDS = [0.5, 1, 1.5, 2] as const;
@@ -44,7 +45,7 @@ export function MemoryPlayer({
         .filter((d) => d.past !== undefined || d.future !== undefined)
         .map((d) => ({
           kind: "day" as const,
-          time: Date.parse(d.date),
+          time: utcDate(d.date).toMillis(),
           date: d.date,
           past: d.past,
           future: d.future,
@@ -144,7 +145,9 @@ export function MemoryPlayer({
             {speed}×
           </Button>
           <span className="text-xs text-muted-foreground">
-            {slides.length === 0 ? "0 / 0" : `${index + 1} / ${slides.length}`}
+            {slides.length === 0
+              ? "0 / 0"
+              : `${count(index + 1)} / ${count(slides.length)}`}
           </span>
         </div>
       </div>
@@ -157,12 +160,7 @@ function SlideView({ slide }: { slide: Slide }) {
     return (
       <div>
         <p className="mb-4 text-center text-lg font-medium">
-          {new Date(slide.date).toLocaleDateString([], {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {utcDate(slide.date).toLocaleString(DateTime.DATE_HUGE)}
         </p>
         {slide.past !== undefined && (
           <div className="mb-4">
@@ -196,7 +194,8 @@ function SlideView({ slide }: { slide: Slide }) {
             {item.from} → {item.to}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {when(item.departAt)} → {when(item.arriveAt)}
+            {when(item.departAt)} → {when(item.arriveAt)} (
+            {relative(item.departAt)})
           </p>
         </div>
       )}
@@ -208,7 +207,7 @@ function SlideView({ slide }: { slide: Slide }) {
           </p>
           {item.notes && <p className="text-muted-foreground">{item.notes}</p>}
           <p className="mt-1 text-sm text-muted-foreground">
-            {when(item.plannedAt)}
+            {when(item.plannedAt)} ({relative(item.plannedAt)})
           </p>
         </div>
       )}
