@@ -43,6 +43,18 @@ export const fromDateInput = (value: string) =>
 export const fromLocalInput = (value: FormDataEntryValue | null) =>
   DateTime.fromISO(String(value ?? "")).toMillis();
 
+/** `65_000` → `"1:05"`; includes an hours segment past 60 minutes. */
+export const formatDuration = (ms: number) => {
+  const totalSeconds = Math.round(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const ss = String(seconds).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${ss}`
+    : `${minutes}:${ss}`;
+};
+
 export const parseTags = (raw: FormDataEntryValue | string | null) => {
   const tags = String(raw ?? "")
     .split(",")

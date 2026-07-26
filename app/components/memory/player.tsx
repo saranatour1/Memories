@@ -15,7 +15,14 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
 import { DateTime } from "luxon";
-import { count, type Item, relative, utcDate, when } from "~/lib/memory";
+import {
+  count,
+  formatDuration,
+  type Item,
+  relative,
+  utcDate,
+  when,
+} from "~/lib/memory";
 import { VoiceAudio } from "~/components/memory/voice-audio";
 
 const SLIDE_MS = 4000;
@@ -233,6 +240,11 @@ function SlideView({ slide }: { slide: Slide }) {
               mimeType={item.mimeType}
               className="mx-auto"
             />
+          )}
+          {item.durationMs !== undefined && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {formatDuration(item.durationMs)}
+            </p>
           )}
         </div>
       )}

@@ -3,7 +3,7 @@ import { Car, Mic, Plane, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { type Item, relative, when } from "~/lib/memory";
+import { formatDuration, type Item, relative, when } from "~/lib/memory";
 import { VoiceAudio } from "~/components/memory/voice-audio";
 
 export function ItemRow({
@@ -65,6 +65,11 @@ export function ItemRow({
               ) : (
                 <span className="text-sm text-muted-foreground">
                   Voice note…
+                </span>
+              )}
+              {item.durationMs !== undefined && (
+                <span className="text-xs text-muted-foreground">
+                  {formatDuration(item.durationMs)}
                 </span>
               )}
             </div>
