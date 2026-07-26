@@ -3,7 +3,8 @@ import { Car, Mic, Plane, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
-import { canPlayAudioType, type Item, relative, when } from "~/lib/memory";
+import { type Item, relative, when } from "~/lib/memory";
+import { VoiceAudio } from "~/components/memory/voice-audio";
 
 export function ItemRow({
   item,
@@ -56,17 +57,11 @@ export function ItemRow({
             <div className="flex items-center gap-2">
               <Mic className="size-4 shrink-0" />
               {item.url ? (
-                canPlayAudioType(item.mimeType) ? (
-                  <audio controls src={item.url} className="h-9 max-w-full" />
-                ) : (
-                  <a
-                    href={item.url}
-                    download
-                    className="text-sm text-muted-foreground underline"
-                  >
-                    Download voice note (can't play in this browser)
-                  </a>
-                )
+                <VoiceAudio
+                  url={item.url}
+                  mimeType={item.mimeType}
+                  className="h-9 max-w-full"
+                />
               ) : (
                 <span className="text-sm text-muted-foreground">
                   Voice note…

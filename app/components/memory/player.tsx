@@ -15,7 +15,8 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
 import { DateTime } from "luxon";
-import { canPlayAudioType, count, type Item, relative, utcDate, when } from "~/lib/memory";
+import { count, type Item, relative, utcDate, when } from "~/lib/memory";
+import { VoiceAudio } from "~/components/memory/voice-audio";
 
 const SLIDE_MS = 4000;
 const SPEEDS = [0.5, 1, 1.5, 2] as const;
@@ -226,14 +227,13 @@ function SlideView({ slide }: { slide: Slide }) {
       {item.type === "voice" && (
         <div>
           <Mic className="mx-auto mb-3 size-8 text-muted-foreground" />
-          {item.url &&
-            (canPlayAudioType(item.mimeType) ? (
-              <audio controls src={item.url} className="mx-auto" />
-            ) : (
-              <a href={item.url} download className="text-sm underline">
-                Download voice note (can't play in this browser)
-              </a>
-            ))}
+          {item.url && (
+            <VoiceAudio
+              url={item.url}
+              mimeType={item.mimeType}
+              className="mx-auto"
+            />
+          )}
         </div>
       )}
       {item.tags && item.tags.length > 0 && (
