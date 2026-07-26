@@ -56,16 +56,30 @@ export function AddVoiceButton({ memoryId }: { memoryId: Id<"memories"> }) {
     setBusy(true);
     try {
       const key = await uploadFile(file);
-      await addVoice({ memoryId, key, durationMs });
+      await addVoice({ memoryId, key, durationMs, mimeType: file.type || undefined });
     } finally {
       setBusy(false);
     }
   };
 
+  // Prefer a container Safari can also decode; MediaRecorder's browser
+  // default is audio/webm on Chrome/Firefox, which Safari can't play.
+  const PREFERRED_MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+  const pickMimeType = () =>
+    PREFERRED_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+
+  const extensionFor = (mimeType: string) => {
+    if (mimeType.includes("mp4")) return "m4a";
+    if (mimeType.includes("webm")) return "webm";
+    if (mimeType.includes("ogg")) return "ogg";
+    return "audio";
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mimeType = pickMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
       recorder.onstop = async () => {
@@ -73,7 +87,9 @@ export function AddVoiceButton({ memoryId }: { memoryId: Id<"memories"> }) {
         setRecording(false);
         const blob = new Blob(chunks, { type: recorder.mimeType });
         await upload(
-          new File([blob], "voice-note.webm", { type: blob.type }),
+          new File([blob], `voice-note.${extensionFor(recorder.mimeType)}`, {
+            type: blob.type,
+          }),
           Date.now() - startedAtRef.current,
         );
       };

@@ -43,6 +43,13 @@ export const fromDateInput = (value: string) =>
 export const fromLocalInput = (value: FormDataEntryValue | null) =>
   DateTime.fromISO(String(value ?? "")).toMillis();
 
+/** Whether this browser can decode a voice note's stored audio type. */
+export const canPlayAudioType = (mimeType?: string) => {
+  if (!mimeType || typeof document === "undefined") return true;
+  const probe = document.createElement("audio");
+  return probe.canPlayType(mimeType) !== "";
+};
+
 export const parseTags = (raw: FormDataEntryValue | string | null) => {
   const tags = String(raw ?? "")
     .split(",")

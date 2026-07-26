@@ -141,6 +141,7 @@ export const addVoice = memberMutation({
   args: {
     key: v.string(),
     durationMs: v.optional(v.number()),
+    mimeType: v.optional(v.string()),
     tags,
     location,
     happenedAt: v.optional(v.number()),
