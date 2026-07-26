@@ -4,6 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
 import { type Item, relative, when } from "~/lib/memory";
+import { VoiceAudio } from "~/components/memory/voice-audio";
 
 export function ItemRow({
   item,
@@ -56,7 +57,11 @@ export function ItemRow({
             <div className="flex items-center gap-2">
               <Mic className="size-4 shrink-0" />
               {item.url ? (
-                <audio controls src={item.url} className="h-9 max-w-full" />
+                <VoiceAudio
+                  url={item.url}
+                  mimeType={item.mimeType}
+                  className="h-9 max-w-full"
+                />
               ) : (
                 <span className="text-sm text-muted-foreground">
                   Voice note…

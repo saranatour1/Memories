@@ -56,24 +56,45 @@ export function AddVoiceButton({ memoryId }: { memoryId: Id<"memories"> }) {
     setBusy(true);
     try {
       const key = await uploadFile(file);
-      await addVoice({ memoryId, key, durationMs });
+      await addVoice({ memoryId, key, durationMs, mimeType: file.type || undefined });
     } finally {
       setBusy(false);
     }
   };
 
+  // Prefer a container Safari can also decode; MediaRecorder's browser
+  // default is audio/webm on Chrome/Firefox, which Safari can't play.
+  const PREFERRED_MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+  const pickMimeType = () =>
+    PREFERRED_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+
+  const extensionFor = (mimeType: string) => {
+    if (mimeType.includes("mp4")) return "m4a";
+    if (mimeType.includes("webm")) return "webm";
+    if (mimeType.includes("ogg")) return "ogg";
+    // No preferred type was supported, so this is the browser's own default
+    // container: derive the extension from the subtype (audio/x-caf → caf)
+    // rather than inventing one. Empty mimeType falls back to the default
+    // every MediaRecorder implementation ships today.
+    return mimeType.split(";")[0].split("/")[1]?.replace(/^x-/, "") || "webm";
+  };
+
   const startRecording = async () => {
+    let stream: MediaStream | undefined;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = pickMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
       recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
+        recorder.stream.getTracks().forEach((t) => t.stop());
         setRecording(false);
         const blob = new Blob(chunks, { type: recorder.mimeType });
         await upload(
-          new File([blob], "voice-note.webm", { type: blob.type }),
+          new File([blob], `voice-note.${extensionFor(recorder.mimeType)}`, {
+            type: blob.type,
+          }),
           Date.now() - startedAtRef.current,
         );
       };
@@ -82,6 +103,10 @@ export function AddVoiceButton({ memoryId }: { memoryId: Id<"memories"> }) {
       recorder.start();
       setRecording(true);
     } catch {
+      // Mic may already be live if the failure came after getUserMedia (MIME
+      // probing, the MediaRecorder constructor, start()) — release it, or the
+      // recording indicator stays on with nothing recording.
+      stream?.getTracks().forEach((t) => t.stop());
       // No mic access or unsupported browser — fall back to a file picker.
       setUseFallback(true);
     }

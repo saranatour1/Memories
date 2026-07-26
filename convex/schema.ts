@@ -101,5 +101,6 @@ export default defineSchema({
     ...itemBase,
     key: v.string(), // R2 object key
     durationMs: v.optional(v.number()),
+    mimeType: v.optional(v.string()), // actual recorded/uploaded audio type
   }).index("by_memory_and_happenedAt", ["memoryId", "happenedAt"]),
 });
