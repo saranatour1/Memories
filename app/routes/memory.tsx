@@ -90,6 +90,7 @@ function MemoryView({
   );
   const [copied, setCopied] = useState(false);
   const [watching, setWatching] = useState(false);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const editorFlush = useRef<(() => void) | null>(null);
 
   // Edits stay local until the Save button sends them in one mutation.
@@ -126,6 +127,19 @@ function MemoryView({
   };
 
   const sorted = [...items].sort((a, b) => a.happenedAt - b.happenedAt);
+  const allTags = [...new Set(sorted.flatMap((item) => item.tags ?? []))].sort();
+  const filtered =
+    activeTags.length === 0
+      ? sorted
+      : sorted.filter((item) =>
+          activeTags.every((tag) => item.tags?.includes(tag)),
+        );
+  const toggleTag = (tag: string) =>
+    setActiveTags((current) =>
+      current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : [...current, tag],
+    );
   const isOwner = memory.role === "owner";
   const nameOf = (userId: string) =>
     memory.members.find((m) => m.userId === userId)?.name ?? "Someone";
@@ -276,13 +290,47 @@ function MemoryView({
         <AddVoiceButton memoryId={memoryId} />
       </div>
 
+      {allTags.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">Filter:</span>
+          {allTags.map((tag) => {
+            const active = activeTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {tag}
+              </button>
+            );
+          })}
+          {activeTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTags([])}
+              className="text-xs text-muted-foreground underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
-        {sorted.length === 0 && (
+        {filtered.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Nothing planned yet. Add a flight, drive or note above.
+            {sorted.length === 0
+              ? "Nothing planned yet. Add a flight, drive or note above."
+              : "No items match the selected tags."}
           </p>
         )}
-        {sorted.map((item) => (
+        {filtered.map((item) => (
           <ItemRow
             key={item._id}
             item={item}
