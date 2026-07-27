@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery_experimental as useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
   Car,
   Mic,
@@ -15,15 +16,49 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { RichText } from "~/components/editor";
 import { Button } from "~/components/ui/button";
 import { DateTime } from "luxon";
-import { count, type Item, relative, utcDate, when } from "~/lib/memory";
+import {
+  count,
+  type Item,
+  relative,
+  textLength,
+  utcDate,
+  when,
+} from "~/lib/memory";
 import { VoiceAudio } from "~/components/memory/voice-audio";
 
 const SLIDE_MS = 4000;
+const MIN_SLIDE_MS = 3000;
+const MAX_SLIDE_MS = 15000;
+const MAX_VOICE_SLIDE_MS = 30000;
+const MS_PER_CHAR = 60;
 const SPEEDS = [0.5, 1, 1.5, 2] as const;
 
 type Slide =
   | { kind: "day"; time: number; date: string; past?: unknown; future?: unknown }
   | { kind: "item"; time: number; item: Item };
+
+/** How long a slide should stay up, scaled to how much there is to read/hear. */
+function slideDurationMs(slide: Slide): number {
+  if (slide.kind === "day") {
+    const chars = textLength(slide.past) + textLength(slide.future);
+    return clamp(chars * MS_PER_CHAR, MIN_SLIDE_MS, MAX_SLIDE_MS);
+  }
+  if (slide.item.type === "note") {
+    return clamp(
+      textLength(slide.item.content) * MS_PER_CHAR,
+      MIN_SLIDE_MS,
+      MAX_SLIDE_MS,
+    );
+  }
+  if (slide.item.type === "voice" && slide.item.durationMs) {
+    return clamp(slide.item.durationMs, MIN_SLIDE_MS, MAX_VOICE_SLIDE_MS);
+  }
+  return SLIDE_MS;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 // Plays the memory back like a video: one slide per day panel and per item,
 // in chronological order, auto-advancing with adjustable speed.
@@ -39,10 +74,22 @@ export function MemoryPlayer({
   onClose: () => void;
 }) {
   const daysResult = useQuery({ query: api.days.list, args: { memoryId } });
-  const days = daysResult.status === "success" ? daysResult.data : undefined;
+
+  // Freeze the slide list the moment it's first available, so a reactive
+  // update to `items` or `days` mid-playback can't reorder or resize it
+  // out from under the viewer (see #13).
+  const [itemsSnapshot] = useState(items);
+  const [daysSnapshot, setDaysSnapshot] =
+    useState<FunctionReturnType<typeof api.days.list>>();
+  useEffect(() => {
+    if (daysSnapshot === undefined && daysResult.status === "success") {
+      setDaysSnapshot(daysResult.data);
+    }
+  }, [daysResult, daysSnapshot]);
+
   const slides = useMemo<Slide[]>(() => {
     return [
-      ...(days ?? [])
+      ...(daysSnapshot ?? [])
         .filter((d) => d.past !== undefined || d.future !== undefined)
         .map((d) => ({
           kind: "day" as const,
@@ -51,17 +98,27 @@ export function MemoryPlayer({
           past: d.past,
           future: d.future,
         })),
-      ...items.map((item) => ({
+      ...itemsSnapshot.map((item) => ({
         kind: "item" as const,
         time: item.happenedAt,
         item,
       })),
     ].sort((a, b) => a.time - b.time);
-  }, [days, items]);
+  }, [daysSnapshot, itemsSnapshot]);
 
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+
+  const goPrev = () => setIndex((i) => Math.max(i - 1, 0));
+  const goNext = () => setIndex((i) => Math.min(i + 1, slides.length - 1));
+  const togglePlaying = () =>
+    setPlaying((p) => {
+      if (!p && index >= slides.length - 1) setIndex(0);
+      return !p;
+    });
+
+  const slide = slides[Math.min(index, Math.max(slides.length - 1, 0))];
 
   useEffect(() => {
     if (!playing || slides.length === 0) return;
@@ -69,11 +126,29 @@ export function MemoryPlayer({
       setPlaying(false);
       return;
     }
-    const t = setTimeout(() => setIndex(index + 1), SLIDE_MS / speed);
+    const t = setTimeout(() => setIndex(index + 1), slideDurationMs(slide) / speed);
     return () => clearTimeout(t);
-  }, [playing, index, speed, slides.length]);
+  }, [playing, index, speed, slides.length, slide]);
 
-  const slide = slides[Math.min(index, Math.max(slides.length - 1, 0))];
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === " ") {
+        e.preventDefault();
+        togglePlaying();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm">
@@ -113,25 +188,18 @@ export function MemoryPlayer({
             variant="ghost"
             size="icon"
             disabled={index === 0}
-            onClick={() => setIndex(index - 1)}
+            onClick={goPrev}
           >
             <SkipBack className="size-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              if (!playing && index >= slides.length - 1) setIndex(0);
-              setPlaying(!playing);
-            }}
-          >
+          <Button variant="outline" size="icon" onClick={togglePlaying}>
             {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             disabled={index >= slides.length - 1}
-            onClick={() => setIndex(index + 1)}
+            onClick={goNext}
           >
             <SkipForward className="size-4" />
           </Button>

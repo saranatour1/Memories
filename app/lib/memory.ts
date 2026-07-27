@@ -50,3 +50,14 @@ export const parseTags = (raw: FormDataEntryValue | string | null) => {
     .filter(Boolean);
   return tags.length > 0 ? tags : undefined;
 };
+
+/** Total character count of the text nodes in a Tiptap JSON document. */
+export const textLength = (doc: unknown): number => {
+  if (!doc || typeof doc !== "object") return 0;
+  const node = doc as { text?: unknown; content?: unknown };
+  let total = typeof node.text === "string" ? node.text.length : 0;
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) total += textLength(child);
+  }
+  return total;
+};
