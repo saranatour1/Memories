@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 
-const OWNER = "user_01KPV0ZSC23E7FWQ8XXVDGHRER";
 const TITLE = "Sample trip: Amman → Lisbon (seeded)";
 const TRIP_TITLE = "Summer 2026 (seeded)";
 
@@ -24,14 +23,23 @@ const ITEM_TABLES = [
 // (matched by title) and recreates them with flights, drives, tagged notes
 // and day panels.
 export const run = internalMutation({
-  args: {},
+  args: {
+    userId: v.optional(v.string()),
+  },
   returns: v.object({
     tripId: v.id("trips"),
     memoryId: v.id("memories"),
     items: v.number(),
     days: v.number(),
   }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    const OWNER = args.userId ?? (await ctx.db.query("users").first())?.userId;
+    if (!OWNER) {
+      throw new Error(
+        "No userId provided and no users exist yet — pass one explicitly: npx convex run seed:run '{\"userId\": \"user_...\"}'",
+      );
+    }
+
     let existing = null;
     for await (const m of ctx.db
       .query("memories")

@@ -58,7 +58,8 @@ npx convex run seed:run
 ```
 
 Creates (or resets) a sample trip with flights, drives, tagged notes and day
-panels for testing.
+panels for testing, owned by the first user row in the `users` table. Pass an
+explicit owner with `npx convex run seed:run '{"userId": "user_..."}'`.
 
 ## Production
 
